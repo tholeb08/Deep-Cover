@@ -583,8 +583,9 @@ window.createGame = async function() {
     game: null,
     chat: {},
     log: {},
+    players: {}
   };
-  room['players/'+me.id] = {name:me.name, avatar:me.avatar, id:me.id, role:null, alive:true, mayor:false, lovers:false, protected:false};
+  room.players[me.id] = {name:me.name, avatar:me.avatar, id:me.id, role:null, alive:true, mayor:false, lovers:false, protected:false};
 
   await dbSet('rooms/'+roomCode, room);
   err.textContent = '';
