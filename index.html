@@ -128,77 +128,131 @@ body{background:var(--dark);color:var(--moon);font-family:'EB Garamond',Georgia,
 .dur-field input{width:80px;background:rgba(255,255,255,.05);border:1px solid rgba(232,213,163,.18);border-radius:6px;color:var(--moon);font-family:inherit;font-size:.95rem;padding:7px 10px;outline:none;}
 
 /* GAME */
-#game-screen{padding:14px;max-width:960px;margin:0 auto;width:100%;}
-.phase-bar{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,var(--dark3),var(--dark4));border:1px solid rgba(232,213,163,.1);border-radius:14px;padding:13px 18px;margin-bottom:13px;}
-.ph-left{display:flex;align-items:center;gap:12px;}
-.ph-icon{font-size:1.9rem;filter:drop-shadow(0 0 8px rgba(232,213,163,.3));}
-.ph-name{font-family:'Cinzel Decorative',serif;font-size:.95rem;}
-.ph-desc{font-size:.8rem;color:var(--smoke);font-style:italic;}
-.ph-timer{font-family:'Cinzel Decorative',serif;font-size:1.8rem;color:var(--ember2);text-shadow:0 0 20px rgba(200,121,65,.4);min-width:58px;text-align:right;transition:color .3s;}
+#game-screen{padding:14px;max-width:980px;margin:0 auto;width:100%;}
+
+/* Phase Bar — dynamic night/day atmosphere */
+.phase-bar{display:flex;align-items:center;justify-content:space-between;border-radius:16px;padding:16px 22px;margin-bottom:14px;position:relative;overflow:hidden;transition:all .8s ease;}
+.phase-bar.is-night{background:linear-gradient(135deg,#0d0b1a,#12102a);border:1px solid rgba(120,100,200,.25);box-shadow:0 4px 30px rgba(80,60,160,.2);}
+.phase-bar.is-day{background:linear-gradient(135deg,#1a1208,#221a0a);border:1px solid rgba(220,160,60,.25);box-shadow:0 4px 30px rgba(200,140,40,.15);}
+.phase-bar::before{content:'';position:absolute;inset:0;opacity:.04;pointer-events:none;transition:opacity .8s;}
+.phase-bar.is-night::before{background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Ccircle cx='5' cy='5' r='1' fill='white'/%3E%3Ccircle cx='25' cy='12' r='.7' fill='white'/%3E%3Ccircle cx='45' cy='3' r='1.2' fill='white'/%3E%3Ccircle cx='15' cy='35' r='.8' fill='white'/%3E%3Ccircle cx='55' cy='28' r='.6' fill='white'/%3E%3Ccircle cx='38' cy='50' r='1' fill='white'/%3E%3C/svg%3E");}
+.phase-bar.is-day::before{background:radial-gradient(ellipse at 50% 0%,rgba(255,200,80,.3) 0%,transparent 70%);}
+.ph-left{display:flex;align-items:center;gap:14px;}
+.ph-icon{font-size:2.2rem;filter:drop-shadow(0 0 12px rgba(232,213,163,.4));transition:all .8s;}
+.ph-info{}
+.ph-name{font-family:'Cinzel Decorative',serif;font-size:1.05rem;letter-spacing:.04em;}
+.ph-desc{font-size:.78rem;color:var(--smoke);font-style:italic;margin-top:2px;}
+.ph-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
+.ph-timer{font-family:'Cinzel Decorative',serif;font-size:2rem;color:var(--ember2);text-shadow:0 0 20px rgba(200,121,65,.4);min-width:64px;text-align:right;transition:color .3s;line-height:1;}
 .ph-timer.urgent{color:var(--blood2);text-shadow:0 0 20px rgba(176,32,32,.6);animation:urgPulse .5s ease-in-out infinite;}
-@keyframes urgPulse{0%,100%{opacity:1}50%{opacity:.55}}
-.game-cols{display:grid;grid-template-columns:1fr 270px;gap:13px;}
-@media(max-width:700px){.game-cols{grid-template-columns:1fr;}}
-.game-main{display:flex;flex-direction:column;gap:12px;}
-.my-role-card{background:linear-gradient(135deg,var(--dark3),var(--dark2));border:1px solid rgba(232,213,163,.15);border-radius:14px;padding:16px;display:flex;align-items:center;gap:14px;}
-.role-emoji-big{font-size:2.6rem;}
-.role-name{font-family:'Cinzel Decorative',serif;font-size:.9rem;margin-bottom:3px;}
-.role-camp{font-size:.76rem;font-style:italic;margin-bottom:3px;}
-.role-camp.loup{color:var(--wolf-clr);}
-.role-camp.village{color:var(--village-clr);}
-.role-camp.neutre{color:var(--neutral-clr);}
-.role-desc-txt{font-size:.8rem;color:var(--smoke);line-height:1.4;}
-.players-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:9px;}
-.p-tile{background:var(--dark3);border:1px solid rgba(232,213,163,.1);border-radius:10px;padding:10px 8px;text-align:center;position:relative;cursor:pointer;transition:all .25s;}
-.p-tile:hover{border-color:rgba(232,213,163,.3);transform:translateY(-2px);}
-.p-tile.dead{opacity:.22;filter:grayscale(1);pointer-events:none;}
-.p-tile.me{border-color:rgba(232,213,163,.35);background:rgba(232,213,163,.05);}
-.p-tile.mayor::after{content:'👑';position:absolute;top:-6px;right:-4px;font-size:.85rem;}
-.p-tile.protected{border-color:rgba(100,200,100,.45);box-shadow:0 0 10px rgba(100,200,100,.15);}
-.p-tile.lover::before{content:'❤️';position:absolute;top:-6px;left:-4px;font-size:.72rem;}
-.t-av{font-size:1.55rem;margin-bottom:3px;}
-.t-name{font-size:.77rem;line-height:1.2;}
-.t-role{font-size:.67rem;color:var(--smoke);font-style:italic;margin-top:2px;}
-.actions-panel{background:var(--dark3);border:1px solid rgba(232,213,163,.1);border-radius:12px;padding:13px;}
-.a-title{font-family:'Cinzel Decorative',serif;font-size:.68rem;letter-spacing:.12em;color:var(--smoke);margin-bottom:9px;text-transform:uppercase;}
-.a-btns{display:flex;flex-wrap:wrap;gap:7px;}
-.a-btn{background:rgba(255,255,255,.04);border:1px solid rgba(232,213,163,.12);color:var(--moon);font-family:'EB Garamond',serif;font-size:.86rem;padding:7px 12px;border-radius:7px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:5px;}
-.a-btn:hover{background:rgba(232,213,163,.08);border-color:rgba(232,213,163,.3);}
-.a-btn.red{border-color:rgba(122,18,18,.35);}
-.a-btn.red:hover{background:rgba(122,18,18,.2);border-color:var(--blood2);}
-.a-btn.purple{border-color:rgba(140,80,200,.3);}
-.a-btn.purple:hover{background:rgba(140,80,200,.1);}
-.game-side{display:flex;flex-direction:column;gap:12px;}
-.event-card{background:linear-gradient(135deg,rgba(70,35,110,.35),rgba(35,15,55,.45));border:1px solid rgba(156,100,220,.3);border-radius:12px;padding:15px;text-align:center;animation:evGlow 2s ease-in-out infinite;}
-@keyframes evGlow{0%,100%{box-shadow:0 0 12px rgba(156,100,220,.2);}50%{box-shadow:0 0 28px rgba(156,100,220,.4);}}
-.ev-big{font-size:1.9rem;margin-bottom:6px;}
-.ev-title{font-family:'Cinzel Decorative',serif;font-size:.8rem;color:#c0a0ff;margin-bottom:4px;}
-.ev-desc{font-size:.77rem;color:var(--smoke);font-style:italic;line-height:1.4;}
-.master-panel{background:linear-gradient(135deg,var(--dark3),var(--dark2));border:1px solid rgba(200,121,65,.2);border-radius:12px;padding:13px;}
-.m-title{font-family:'Cinzel Decorative',serif;font-size:.7rem;letter-spacing:.12em;color:var(--ember);margin-bottom:9px;text-transform:uppercase;}
-.m-btns{display:flex;flex-direction:column;gap:6px;}
-.m-btn{background:rgba(255,255,255,.04);border:1px solid rgba(232,213,163,.1);color:var(--moon);font-family:'EB Garamond',serif;font-size:.86rem;padding:7px 12px;border-radius:8px;cursor:pointer;transition:all .2s;text-align:left;display:flex;align-items:center;gap:7px;}
-.m-btn:hover{background:rgba(232,213,163,.07);border-color:rgba(232,213,163,.28);}
-.m-btn.kill{border-color:rgba(122,18,18,.3);}
-.m-btn.kill:hover{background:rgba(122,18,18,.2);border-color:var(--blood2);}
-.chat-panel{background:var(--dark2);border:1px solid rgba(232,213,163,.09);border-radius:12px;display:flex;flex-direction:column;min-height:180px;max-height:300px;}
-.chat-head{font-family:'Cinzel Decorative',serif;font-size:.68rem;letter-spacing:.12em;color:var(--smoke);padding:11px 13px 8px;border-bottom:1px solid rgba(232,213,163,.07);text-transform:uppercase;}
-.chat-msgs{flex:1;overflow-y:auto;padding:9px 12px;display:flex;flex-direction:column;gap:5px;}
-.c-msg{font-size:.83rem;line-height:1.4;}
+@keyframes urgPulse{0%,100%{opacity:1}50%{opacity:.4}}
+.ph-turn-badge{font-size:.68rem;color:var(--smoke);font-style:italic;text-align:right;}
+
+.game-cols{display:grid;grid-template-columns:1fr 285px;gap:14px;}
+@media(max-width:720px){.game-cols{grid-template-columns:1fr;}}
+.game-main{display:flex;flex-direction:column;gap:13px;}
+
+/* Role Card — glowing border per camp */
+.my-role-card{border-radius:16px;padding:18px 20px;display:flex;align-items:center;gap:16px;position:relative;overflow:hidden;}
+.my-role-card.loup{background:linear-gradient(135deg,rgba(80,10,10,.6),rgba(30,8,8,.8));border:1px solid rgba(180,40,40,.35);box-shadow:0 0 20px rgba(122,18,18,.15);}
+.my-role-card.village{background:linear-gradient(135deg,rgba(10,50,25,.6),rgba(8,30,15,.8));border:1px solid rgba(50,140,80,.35);box-shadow:0 0 20px rgba(30,100,60,.12);}
+.my-role-card.neutre{background:linear-gradient(135deg,rgba(50,20,80,.6),rgba(25,10,45,.8));border:1px solid rgba(120,60,180,.35);box-shadow:0 0 20px rgba(90,50,140,.12);}
+.my-role-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;}
+.my-role-card.loup::before{background:linear-gradient(90deg,transparent,rgba(200,60,60,.5),transparent);}
+.my-role-card.village::before{background:linear-gradient(90deg,transparent,rgba(60,180,100,.4),transparent);}
+.my-role-card.neutre::before{background:linear-gradient(90deg,transparent,rgba(150,80,220,.4),transparent);}
+.role-emoji-big{font-size:3rem;filter:drop-shadow(0 0 10px rgba(232,213,163,.3));flex-shrink:0;}
+.role-info{}
+.role-name{font-family:'Cinzel Decorative',serif;font-size:.95rem;margin-bottom:4px;}
+.role-camp{font-size:.73rem;font-style:italic;margin-bottom:6px;letter-spacing:.05em;}
+.role-camp.loup{color:#e07070;}
+.role-camp.village{color:#60d090;}
+.role-camp.neutre{color:#b080f0;}
+.role-desc-txt{font-size:.81rem;color:var(--smoke);line-height:1.55;}
+
+/* Players Grid */
+.players-section{background:linear-gradient(135deg,var(--dark3),var(--dark2));border:1px solid rgba(232,213,163,.08);border-radius:16px;padding:16px;}
+.players-section-title{font-family:'Cinzel Decorative',serif;font-size:.68rem;letter-spacing:.14em;color:var(--smoke);margin-bottom:12px;text-transform:uppercase;display:flex;align-items:center;gap:7px;}
+.players-section-title span{flex:1;height:1px;background:rgba(232,213,163,.08);}
+.players-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:9px;}
+.p-tile{background:rgba(255,255,255,.025);border:1px solid rgba(232,213,163,.09);border-radius:12px;padding:12px 8px;text-align:center;position:relative;cursor:default;transition:all .3s;}
+.p-tile:hover{border-color:rgba(232,213,163,.22);transform:translateY(-2px);background:rgba(255,255,255,.04);}
+.p-tile.dead{opacity:.18;filter:grayscale(1) blur(.5px);pointer-events:none;}
+.p-tile.me{border-color:rgba(232,213,163,.3);background:rgba(232,213,163,.04);}
+.p-tile.mayor::after{content:'👑';position:absolute;top:-8px;right:-4px;font-size:.9rem;filter:drop-shadow(0 0 6px rgba(200,160,0,.5));}
+.p-tile.protected{border-color:rgba(80,200,120,.5);box-shadow:0 0 14px rgba(80,200,120,.12);}
+.p-tile.lover::before{content:'❤️';position:absolute;top:-8px;left:-4px;font-size:.75rem;}
+.p-tile.loup-known{border-color:rgba(176,32,32,.4);background:rgba(80,10,10,.2);}
+.t-av{font-size:1.7rem;margin-bottom:5px;}
+.t-name{font-size:.74rem;line-height:1.2;font-weight:600;}
+.t-role{font-size:.64rem;color:var(--smoke);font-style:italic;margin-top:3px;}
+.t-status{font-size:.62rem;margin-top:3px;}
+
+/* Actions Panel */
+.actions-panel{background:linear-gradient(135deg,var(--dark3),var(--dark2));border:1px solid rgba(232,213,163,.08);border-radius:16px;padding:16px;}
+.a-title{font-family:'Cinzel Decorative',serif;font-size:.68rem;letter-spacing:.14em;color:var(--smoke);margin-bottom:10px;text-transform:uppercase;display:flex;align-items:center;gap:7px;}
+.a-title span{flex:1;height:1px;background:rgba(232,213,163,.08);}
+.a-btns{display:flex;flex-direction:column;gap:8px;}
+.a-flavor{background:rgba(255,255,255,.025);border-left:2px solid rgba(232,213,163,.2);border-radius:0 8px 8px 0;padding:10px 14px;font-size:.83rem;color:var(--moon2);font-style:italic;line-height:1.6;margin-bottom:4px;}
+.a-flavor.loup{border-color:rgba(180,40,40,.5);}
+.a-flavor.village{border-color:rgba(50,160,80,.5);}
+.a-flavor.neutre{border-color:rgba(130,60,200,.5);}
+.a-btn{background:rgba(255,255,255,.04);border:1px solid rgba(232,213,163,.12);color:var(--moon);font-family:'EB Garamond',serif;font-size:.9rem;padding:9px 14px;border-radius:9px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:7px;text-align:left;}
+.a-btn:hover{background:rgba(232,213,163,.09);border-color:rgba(232,213,163,.32);transform:translateX(2px);}
+.a-btn.red{border-color:rgba(140,20,20,.4);background:rgba(100,10,10,.1);}
+.a-btn.red:hover{background:rgba(122,18,18,.25);border-color:var(--blood2);}
+.a-btn.purple{border-color:rgba(140,80,200,.35);background:rgba(90,30,140,.08);}
+.a-btn.purple:hover{background:rgba(140,80,200,.15);border-color:#a060e0;}
+.a-btn.green{border-color:rgba(50,160,80,.35);background:rgba(20,100,40,.08);}
+.a-btn.green:hover{background:rgba(40,160,70,.15);border-color:#50d080;}
+.a-used{font-size:.78rem;color:var(--smoke);font-style:italic;opacity:.7;padding:3px 0;}
+
+/* Side panel */
+.game-side{display:flex;flex-direction:column;gap:13px;}
+
+/* Event Card */
+.event-card{background:linear-gradient(135deg,rgba(60,25,100,.5),rgba(30,10,55,.6));border:1px solid rgba(156,100,220,.35);border-radius:14px;padding:18px;text-align:center;animation:evGlow 3s ease-in-out infinite;}
+@keyframes evGlow{0%,100%{box-shadow:0 0 15px rgba(156,100,220,.2);}50%{box-shadow:0 0 35px rgba(156,100,220,.45);}}
+.ev-big{font-size:2.2rem;margin-bottom:8px;}
+.ev-title{font-family:'Cinzel Decorative',serif;font-size:.82rem;color:#c8b0ff;margin-bottom:5px;letter-spacing:.06em;}
+.ev-desc{font-size:.78rem;color:var(--smoke);font-style:italic;line-height:1.5;}
+
+/* Chat Panel */
+.chat-panel{background:rgba(8,8,18,.5);border:1px solid rgba(232,213,163,.08);border-radius:14px;display:flex;flex-direction:column;min-height:200px;max-height:320px;overflow:hidden;}
+.chat-head{font-family:'Cinzel Decorative',serif;font-size:.66rem;letter-spacing:.14em;color:var(--smoke);padding:12px 14px 9px;border-bottom:1px solid rgba(232,213,163,.06);text-transform:uppercase;display:flex;align-items:center;gap:6px;}
+.chat-head::before{content:'';width:6px;height:6px;background:#4a9a5a;border-radius:50%;box-shadow:0 0 8px #4a9a5a;}
+.chat-msgs{flex:1;overflow-y:auto;padding:10px 13px;display:flex;flex-direction:column;gap:6px;}
+.c-msg{font-size:.82rem;line-height:1.45;}
 .c-msg .c-author{font-weight:600;color:var(--ember2);}
-.c-msg .c-author.dead{color:var(--smoke);text-decoration:line-through;}
+.c-msg .c-author.dead{color:var(--smoke);text-decoration:line-through;opacity:.6;}
 .c-msg .c-author.me-author{color:var(--moon);}
 .c-msg .c-text{color:var(--moon2);}
-.c-msg.sys{font-style:italic;color:var(--smoke);font-size:.78rem;}
-.chat-row{display:flex;gap:7px;padding:9px 12px;border-top:1px solid rgba(232,213,163,.07);}
-.chat-inp{flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(232,213,163,.14);border-radius:6px;color:var(--moon);font-family:'EB Garamond',serif;font-size:.88rem;padding:7px 10px;outline:none;transition:border-color .2s;}
-.chat-inp:focus{border-color:rgba(232,213,163,.34);}
-.chat-send{background:rgba(122,18,18,.4);border:1px solid rgba(176,32,32,.4);color:var(--moon);border-radius:6px;padding:7px 12px;cursor:pointer;font-size:.84rem;transition:all .2s;}
-.chat-send:hover{background:rgba(122,18,18,.7);}
-.dead-zone{padding:8px 12px;background:rgba(0,0,0,.2);border-radius:8px;margin-top:6px;}
-.dead-zone-lbl{font-size:.71rem;color:var(--smoke);font-style:italic;margin-bottom:5px;}
+.c-msg.sys{font-style:italic;color:var(--smoke);font-size:.76rem;padding:3px 0;border-top:1px solid rgba(232,213,163,.04);margin-top:2px;}
+.c-msg.sys.death{color:#e07070;}
+.c-msg.sys.night{color:#8070b0;}
+.c-msg.sys.chaos{color:#c0a0ff;}
+.c-msg.sys.info{color:#70c0a0;}
+.chat-row{display:flex;gap:7px;padding:8px 12px;border-top:1px solid rgba(232,213,163,.06);}
+.chat-inp{flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(232,213,163,.12);border-radius:8px;color:var(--moon);font-family:'EB Garamond',serif;font-size:.88rem;padding:8px 11px;outline:none;transition:border-color .2s;}
+.chat-inp:focus{border-color:rgba(232,213,163,.3);}
+.chat-inp:disabled{opacity:.35;cursor:not-allowed;}
+.chat-send{background:linear-gradient(135deg,var(--blood),#500a0a);border:1px solid rgba(176,32,32,.4);color:var(--moon);border-radius:8px;padding:8px 13px;cursor:pointer;font-size:.88rem;transition:all .2s;}
+.chat-send:hover{background:linear-gradient(135deg,var(--blood2),var(--blood));}
+
+/* Dead zone */
+.dead-zone{padding:10px 14px;background:rgba(0,0,0,.25);border-radius:10px;margin-top:8px;border:1px solid rgba(232,213,163,.05);}
+.dead-zone-lbl{font-size:.68rem;color:var(--smoke);font-style:italic;margin-bottom:6px;text-transform:uppercase;letter-spacing:.1em;}
 .dead-chips{display:flex;flex-wrap:wrap;gap:5px;}
-.dead-chip{font-size:.77rem;color:var(--smoke);text-decoration:line-through;padding:2px 8px;background:rgba(255,255,255,.03);border-radius:10px;}
+.dead-chip{font-size:.75rem;color:var(--smoke);text-decoration:line-through;padding:3px 9px;background:rgba(255,255,255,.03);border-radius:12px;border:1px solid rgba(232,213,163,.06);}
+
+/* Wolves chat — private section */
+.wolf-chat{background:linear-gradient(135deg,rgba(80,10,10,.4),rgba(30,5,5,.5));border:1px solid rgba(180,40,40,.25);border-radius:14px;display:flex;flex-direction:column;max-height:160px;overflow:hidden;}
+.wolf-chat-head{font-family:'Cinzel Decorative',serif;font-size:.64rem;letter-spacing:.12em;color:#e07070;padding:9px 12px 7px;border-bottom:1px solid rgba(180,40,40,.15);text-transform:uppercase;display:flex;align-items:center;gap:6px;}
+.wolf-chat-head::before{content:'🐺';font-size:.8rem;}
+.wolf-chat-msgs{flex:1;overflow-y:auto;padding:8px 11px;display:flex;flex-direction:column;gap:4px;font-size:.79rem;}
+.wolf-chat-row{display:flex;gap:6px;padding:7px 10px;border-top:1px solid rgba(180,40,40,.1);}
+.wolf-chat-inp{flex:1;background:rgba(100,10,10,.2);border:1px solid rgba(180,40,40,.2);border-radius:6px;color:var(--moon);font-family:'EB Garamond',serif;font-size:.83rem;padding:6px 10px;outline:none;}
+.wolf-send{background:rgba(122,18,18,.6);border:none;color:var(--moon);border-radius:6px;padding:6px 11px;cursor:pointer;font-size:.82rem;}
 
 /* NARRATIVE */
 #narr{position:fixed;inset:0;z-index:200;background:rgba(4,4,12,.93);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .6s;}
@@ -309,28 +363,31 @@ body{background:var(--dark);color:var(--moon);font-family:'EB Garamond',Georgia,
 
 <!-- GAME -->
 <div id="game-screen" class="screen">
-  <div class="phase-bar">
+  <div class="phase-bar is-night" id="phase-bar">
     <div class="ph-left">
       <div class="ph-icon" id="ph-icon">🌑</div>
-      <div>
+      <div class="ph-info">
         <div class="ph-name" id="ph-name">Nuit 1</div>
         <div class="ph-desc" id="ph-desc">Les créatures s'éveillent…</div>
       </div>
     </div>
-    <div class="ph-timer" id="ph-timer">--</div>
+    <div class="ph-right">
+      <div class="ph-timer" id="ph-timer">--</div>
+      <div class="ph-turn-badge" id="ph-turn-badge">Tour 1</div>
+    </div>
   </div>
   <div class="game-cols">
     <div class="game-main">
       <div class="my-role-card" id="my-role-card">
         <div class="role-emoji-big" id="r-em">❓</div>
-        <div>
+        <div class="role-info">
           <div class="role-name" id="r-name">Rôle secret</div>
           <div class="role-camp" id="r-camp"></div>
           <div class="role-desc-txt" id="r-desc"></div>
         </div>
       </div>
-      <div class="panel">
-        <div class="p-title">👥 Joueurs</div>
+      <div class="players-section">
+        <div class="players-section-title">👥 Joueurs <span></span></div>
         <div class="players-grid" id="g-players"></div>
         <div class="dead-zone" id="dead-zone" style="display:none;">
           <div class="dead-zone-lbl">⚰️ Éliminés</div>
@@ -338,14 +395,24 @@ body{background:var(--dark);color:var(--moon);font-family:'EB Garamond',Georgia,
         </div>
       </div>
       <div class="actions-panel">
-        <div class="a-title">⚡ Vos Actions</div>
+        <div class="a-title">⚡ Vos Actions <span></span></div>
         <div class="a-btns" id="a-btns"></div>
       </div>
     </div>
     <div class="game-side">
       <div class="event-card" id="ev-card" style="display:none;"></div>
+      <div id="wolf-chat-panel" style="display:none;">
+        <div class="wolf-chat">
+          <div class="wolf-chat-head">Canal des Loups</div>
+          <div class="wolf-chat-msgs" id="wolf-msgs"></div>
+          <div class="wolf-chat-row">
+            <input class="wolf-chat-inp" id="wolf-in" placeholder="Message secret…" maxlength="200" autocomplete="off">
+            <button class="wolf-send" onclick="sendWolfChat()">↑</button>
+          </div>
+        </div>
+      </div>
       <div class="chat-panel">
-        <div class="chat-head">💬 Discussion</div>
+        <div class="chat-head">💬 Village</div>
         <div class="chat-msgs" id="chat-msgs"></div>
         <div class="chat-row">
           <input class="chat-inp" id="chat-in" placeholder="Votre message…" maxlength="200" autocomplete="off">
@@ -718,6 +785,9 @@ window.launchGame = async function() {
     phaseEndTime: Date.now()+nightDur*1000,
     nightDur, dayDur, evProb,
     witchLifeUsed:false, witchDeathUsed:false, godUsed:false, chronoUsed:false, infectUsed:false,
+    seerUsed:false, illusionUsedThisNight:false,
+    fleaUsed:false, fleaTarget:null, fleaTurn:0, fleaInfected:false,
+    hunterUsed:false,
     loversA, loversB,
     currentEvent:null, victory:null,
     lastPhaseChange: Date.now(),
@@ -787,14 +857,29 @@ function updateGameView(room) {
   const g = room.game;
   const players = room.players ? Object.values(room.players) : [];
   const isNight = g.phase==='night';
+  const myP = players.find(p=>p.id===me.id);
+  const myRole = myP?.role || '';
+  const isWolf = ['Loup-Garou','Loup Blanc','Loup Enragé','Loup Infectieux','Loup aux Puces'].includes(myRole);
 
-  document.getElementById('ph-icon').textContent = isNight?'🌑':'☀️';
-  document.getElementById('ph-name').textContent = isNight?`Nuit ${g.turn}`:`Jour ${g.turn}`;
-  document.getElementById('ph-desc').textContent = isNight?'Les créatures de la nuit s\'éveillent…':'Le village débat et accuse…';
+  // Phase bar
+  const bar = document.getElementById('phase-bar');
+  bar.className = 'phase-bar ' + (isNight ? 'is-night' : 'is-day');
+  document.getElementById('ph-icon').textContent = isNight ? '🌑' : '☀️';
+  document.getElementById('ph-name').textContent = isNight ? `Nuit ${g.turn}` : `Jour ${g.turn}`;
+  document.getElementById('ph-desc').textContent = isNight
+    ? 'Le village ferme les yeux… les créatures s\'éveillent.'
+    : 'L\'aube se lève. Le village doit trouver le coupable.';
+  const turnBadge = document.getElementById('ph-turn-badge');
+  if(turnBadge) turnBadge.textContent = `Tour ${g.turn}`;
+
+  // Wolf chat visibility (night only for wolves)
+  const wolfPanel = document.getElementById('wolf-chat-panel');
+  if(wolfPanel) wolfPanel.style.display = (isWolf && isNight) ? 'block' : 'none';
 
   renderPlayers(players);
   renderActions(room);
   renderEvent(g);
+  renderWolfChat(room);
 }
 
 function renderMyRole(room) {
@@ -816,9 +901,7 @@ function renderMyRole(room) {
   }
   document.getElementById('r-desc').textContent = desc;
   const card = document.getElementById('my-role-card');
-  if(rd.camp==='loup') card.style.borderColor='rgba(176,32,32,.4)';
-  else if(rd.camp==='village') card.style.borderColor='rgba(45,122,74,.4)';
-  else card.style.borderColor='rgba(106,64,160,.4)';
+  card.className = 'my-role-card ' + rd.camp;
 }
 
 function renderPlayers(players) {
@@ -913,35 +996,55 @@ function renderActions(room) {
     'Marionnettiste': '🧵 Vos fils tirent dans l\'ombre. Observez les conséquences.',
   };
 
-  const msg = g.phase==='night' ? (ROLE_NIGHT_MSG[role]||'Attendez la nuit…') : (ROLE_DAY_MSG[role]||'Participez aux débats.');
-  btns.innerHTML=`<div style="color:var(--moon2);font-style:italic;font-size:.85rem;line-height:1.5;margin-bottom:8px;width:100%;">${msg}</div>`;
+  const msg = g.phase==='night' ? (ROLE_NIGHT_MSG[role]||'Observez et attendez…') : (ROLE_DAY_MSG[role]||'Participez aux débats.');
+  const camp = ALL_ROLES[role]?.camp || 'village';
+  btns.innerHTML=`<div class="a-flavor ${camp}">${msg}</div>`;
 
   if(g.phase==='night'){
     // Wolf roles
     if(['Loup-Garou','Loup Blanc','Loup Enragé','Loup aux Puces'].includes(role))
       add('🐺 Voter une cible (loups)','red',()=>wolfVoteModal(room));
+    if(role==='Loup Enragé' && (g.turn % 3 === 0))
+      add('🔥 Nuit enragée — tuer 2 cibles','red',()=>wolfRageModal(room));
     if(role==='Loup Infectieux'){
       add('🐺 Voter une cible (loups)','red',()=>wolfVoteModal(room));
-      add('🦠 Infecter (au lieu de tuer)','red',()=>infectModal(room));
+      if(!g.infectUsed) add('🦠 Infecter (au lieu de tuer)','red',()=>infectModal(room));
+      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🦠 Infection déjà utilisée'}));
     }
-    // Village roles
-    if(role==='Voyante')                       add('🔮 Voir un rôle','',()=>seerModal(room));
-    if(role==='Sorcière'&&!g.witchLifeUsed)    add('🧪 Potion de Vie','',()=>witchLifeModal(room));
-    if(role==='Sorcière'&&!g.witchDeathUsed)   add('☠️ Potion de Mort','red',()=>witchDeathModal(room));
-    if(role==='Garde du Corps')                add('🛡️ Protéger','',()=>protectModal(room));
-    if(role==='Dieu du Village'&&!g.godUsed)   add('✨ Annuler une mort','purple',()=>godModal(room));
-    if(role==='Chronomancien'&&!g.chronoUsed)  add('⏳ Rembobiner un tour','purple',()=>chronoAction());
-    if(role==='Nécromancien')                  add('💀 Consulter les morts','',()=>necroModal(room));
+    // Village roles — check seerUsed (reset each night)
+    if(role==='Voyante'){
+      if(!g.seerUsed) add('🔮 Voir un rôle','green',()=>seerModal(room));
+      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🔮 Vous avez déjà regardé cette nuit'}));
+    }
+    if(role==='Sorcière'){
+      if(!g.witchLifeUsed) add('🧪 Potion de Vie','green',()=>witchLifeModal(room));
+      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🧪 Potion de vie épuisée'}));
+      if(!g.witchDeathUsed) add('☠️ Potion de Mort','red',()=>witchDeathModal(room));
+      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'☠️ Potion de mort épuisée'}));
+    }
+    if(role==='Garde du Corps')                add('🛡️ Protéger un joueur','green',()=>protectModal(room));
+    if(role==='Dieu du Village'){
+      if(!g.godUsed) add('✨ Annuler une mort','purple',()=>godModal(room));
+      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'✨ Pouvoir divin déjà utilisé'}));
+    }
+    if(role==='Chronomancien'){
+      if(!g.chronoUsed) add('⏳ Rembobiner un tour','purple',()=>chronoAction());
+      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'⏳ Rembobinage déjà utilisé'}));
+    }
+    if(role==='Nécromancien')                  add('💀 Consulter les morts','purple',()=>necroModal(room));
     // Neutral roles
-    if(role==='Illusionniste')                 add('🪄 Fausser la Voyante','purple',()=>illusionModal(room));
+    if(role==='Illusionniste'){
+      if(!g.illusionUsedThisNight) add('🪄 Fausser la Voyante','purple',()=>illusionModal(room));
+      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🪄 Déjà utilisé cette nuit'}));
+    }
     if(role==='Hypnotiseur')                   add('🌀 Hypnotiser','purple',()=>hypnoModal(room));
     if(role==='Usurpateur')                    add('🎭 Copier un pouvoir','purple',()=>usurpModal(room));
     if(role==='Marionnettiste')                add('🧵 Contrôler un joueur','purple',()=>puppetModal(room));
     if(role==='Avocat')                        add('⚖️ Protéger du vote','',()=>advocateModal(room));
+    if(role==='Loup aux Puces'&&!g.fleaUsed)   add('🐜 Infecter lentement','red',()=>fleaModal(room));
   } else {
     // Day — everyone votes
     add('⚖️ Voter pour éliminer','red',()=>voteModal(room));
-    if(role==='Chasseur'&&!g.hunterUsed)       add('🏹 Tirer (si éliminé)','red',()=>hunterModal(room));
     if(role==='Dieu du Village'&&!g.godUsed)   add('✨ Annuler une élim.','purple',()=>godModal(room));
     if(role==='Maire')                         add('👑 Passer la couronne','',()=>mayorPassModal(room));
   }
@@ -999,6 +1102,9 @@ async function switchPhase(newPhase){
   updates['rooms/'+roomCode+'/game/lastPhaseChange'] = Date.now();
   if(newPhase==='night'){
     updates['rooms/'+roomCode+'/game/turn'] = (g.turn||1)+1;
+    // Reset per-night flags
+    updates['rooms/'+roomCode+'/game/seerUsed'] = false;
+    updates['rooms/'+roomCode+'/game/illusionUsedThisNight'] = false;
     // Reset protection
     const players = room.players ? Object.values(room.players) : [];
     players.forEach(p=>{ updates['rooms/'+roomCode+'/players/'+p.id+'/protected']=false; });
@@ -1013,7 +1119,13 @@ async function switchPhase(newPhase){
     pushNarr({fire:'☀️',color:'#c8a050',title:`Jour ${g.turn}`,text:`L'aube rougeoyante réveille le village, mais l'air reste lourd de mensonges. Les regards se croisent, fuyants ou accusateurs. Qui parmi nous ment ce matin ?`});
   }
   const freshRoom = await dbGet('rooms/'+roomCode);
-  if(freshRoom) await maybeEvent(freshRoom.game);
+  if(freshRoom) {
+    await maybeEvent(freshRoom.game);
+    // Flea wolf infection check (infects after 2 turns)
+    await checkFleaInfection(freshRoom);
+    // Ambient narrative event
+    await maybeAmbientNarr(freshRoom);
+  }
   if(newPhase==='day') await checkVictory();
 }
 
@@ -1033,6 +1145,164 @@ async function maybeEvent(g){
   }
 }
 
+
+async function checkFleaInfection(room){
+  const g = room.game;
+  if(!g?.fleaTarget || g.fleaInfected) return;
+  const currentTurn = g.turn;
+  const fleaTurn = g.fleaTurn || 0;
+  if(currentTurn - fleaTurn >= 2){
+    const target = room.players?.[g.fleaTarget];
+    if(target && target.alive){
+      await dbUpdate('rooms/'+roomCode+'/players/'+g.fleaTarget,{role:'Loup-Garou'});
+      await dbUpdate('rooms/'+roomCode+'/game',{fleaInfected:true});
+      await pushLog(`🐜 Quelqu'un ressent une étrange transformation…`,'night');
+      pushNarr({fire:'🐜',color:'#8a6030',title:'La Métamorphose',text:`${target.name} se réveille avec une sensation étrange. Quelque chose en lui a changé. Une soif nouvelle. Une loyauté nouvelle. La meute l'appelle maintenant.`});
+    }
+  }
+}
+
+// ================================================================
+// AMBIENT NARRATIVE EVENTS — personal, immersive, role-aware
+// ================================================================
+async function maybeAmbientNarr(room){
+  const g = room.game;
+  const players = Object.values(room.players||{});
+  const alive = players.filter(p=>p.alive);
+  const dead = players.filter(p=>!p.alive);
+  if(alive.length < 2) return;
+  // ~50% chance of ambient narr each phase change
+  if(Math.random() > 0.5) return;
+
+  const phase = g.phase; // current phase after switch
+  const lastDead = dead.length > 0 ? dead[dead.length-1] : null;
+  const randAlive = alive[Math.floor(Math.random()*alive.length)];
+  const wolves = alive.filter(p=>ALL_ROLES[p.role]?.camp==='loup');
+  const villagers = alive.filter(p=>ALL_ROLES[p.role]?.camp==='village');
+  const seer = alive.find(p=>p.role==='Voyante');
+  const witch = alive.find(p=>p.role==='Sorcière');
+  const hunter = alive.find(p=>p.role==='Chasseur');
+  const mayor = alive.find(p=>p.mayor);
+  const lovers = alive.filter(p=>p.lovers);
+
+  // Pool of possible ambient events — pick one that makes sense contextually
+  const pool = [];
+
+  // Universal ambient events
+  pool.push({
+    fire:'🦉',color:'#8080b0',
+    title:'Un Bruit dans l\'Ombre',
+    text:`Le vent souffle entre les ruelles du village. Quelqu'un a aperçu une silhouette cette nuit derrière la fenêtre de ${randAlive.name}. Rien d'autre. Juste une ombre.`
+  });
+  pool.push({
+    fire:'🕯️',color:'#c8a050',
+    title:'La Chandelle Vacille',
+    text:`Une fenêtre s'est allumée en plein milieu de la nuit dans le village. Qui ne dort pas ? Pourquoi ? ${randAlive.name} a été vu(e) debout à une heure avancée. Coïncidence ?`
+  });
+  pool.push({
+    fire:'🐦',color:'#60a080',
+    title:'Le Chant de l\'Aube',
+    text:`Les oiseaux se sont tus cette nuit, plus tôt que d'habitude. Comme s'ils sentaient quelque chose. Comme s'ils fuyaient un prédateur que les humains ne peuvent pas encore voir.`
+  });
+  pool.push({
+    fire:'🌫️',color:'#707090',
+    title:'Brumes Matinales',
+    text:`Un épais brouillard recouvre le village ce matin. Les visages sont flous, les intentions encore plus. Dans cette grisaille, même les innocents semblent suspects.`
+  });
+
+  if(lastDead){
+    pool.push({
+      fire:'🕳️',color:'#a06060',
+      title:'Les Traces de la Nuit',
+      text:`Près de la maison de ${lastDead.name}, quelqu'un a remarqué des empreintes dans la boue. Deux paires. L'une appartient à la victime. L'autre… reste un mystère.`
+    });
+    pool.push({
+      fire:'📜',color:'#c8a050',
+      title:'Un Message Retrouvé',
+      text:`On a trouvé un billet froissé dans la poche de ${lastDead.name}. Le papier est taché, l'encre à moitié effacée. On peut juste lire un prénom : "${randAlive.name}".`
+    });
+    pool.push({
+      fire:'🧩',color:'#808060',
+      title:'Témoignage',
+      text:`Un villageois confie à voix basse : la nuit de la mort de ${lastDead.name}, il a entendu des voix à deux maisons de distance. Deux voix. L'une grave, l'autre que personne n'a reconnue.`
+    });
+  }
+
+  if(wolves.length > 0 && alive.length > 3){
+    pool.push({
+      fire:'🐺',color:'#a04040',
+      title:'Un Grognement Lointain',
+      text:`Aux abords du village, quelqu'un a entendu un son grave cette nuit. Pas un animal. Quelque chose de plus patient. Plus intelligent. Il regardait le village depuis les ténèbres.`
+    });
+    pool.push({
+      fire:'🩸',color:'#900000',
+      title:'Une Tache Sombre',
+      text:`Une trace sombre a été remarquée sur le perron ce matin. Personne ne sait depuis combien de temps elle est là. ${randAlive.name} ne semblait pas surpris(e) en la voyant.`
+    });
+  }
+
+  if(seer){
+    pool.push({
+      fire:'🔮',color:'#9060b0',
+      title:'Une Vision Trouble',
+      text:`Quelqu'un dans le village se réveille chaque matin les yeux rouges, comme hanté(e) par des images nocturnes. Les rêves ont des vérités que les mots ne peuvent pas contenir.`
+    });
+  }
+
+  if(witch){
+    pool.push({
+      fire:'🫙',color:'#5080a0',
+      title:'Une Odeur Âcre',
+      text:`Une étrange odeur s'est répandue dans une ruelle cette nuit. Amère, chimique, presque médicinale. Comme si quelqu'un avait renversé un flacon dans l'obscurité.`
+    });
+  }
+
+  if(hunter){
+    pool.push({
+      fire:'🏹',color:'#a08040',
+      title:'Un Bruit de Pas',
+      text:`On a entendu des pas rapides sur les toits cette nuit. Légers mais précis. Comme quelqu'un qui surveille. Qui attend. Avec une flèche déjà encochée.`
+    });
+  }
+
+  if(mayor){
+    pool.push({
+      fire:'👑',color:'#c0a030',
+      title:'Le Maire Inquiet',
+      text:`${mayor.name} n'a presque pas dormi. On l'a vu déambuler dans les rues, les mains croisées dans le dos, le regard perdu. Les décisions du village pèsent lourd en ces temps sombres.`
+    });
+  }
+
+  if(lovers.length === 2){
+    pool.push({
+      fire:'❤️',color:'#d060a0',
+      title:'Une Étreinte Secrète',
+      text:`${lovers[0].name} et ${lovers[1].name} ont été aperçus ensemble cette nuit, loin du village. Que se disaient-ils ? Que se promettaient-ils ? Certains amours survivent même aux loups.`
+    });
+  }
+
+  if(phase === 'night'){
+    pool.push({
+      fire:'🌑',color:'#6050a0',
+      title:'Le Village Retient son Souffle',
+      text:`Toutes les bougies sont éteintes. Toutes les portes verrouillées. Mais certains yeux restent ouverts dans le noir, à écouter les bruits que la nuit produit quand elle croit que tout le monde dort.`
+    });
+  } else {
+    pool.push({
+      fire:'☀️',color:'#b08030',
+      title:'L\'Heure des Regards',
+      text:`Le soleil s'est levé mais aucun sourire ne l'accompagne. Les villageois s'observent en biais, pesant chaque mot avant de l'énoncer. La méfiance est devenue le seul langage parlé ici.`
+    });
+    pool.push({
+      fire:'🗣️',color:'#808060',
+      title:'Des Murmures',
+      text:`On chuchote beaucoup ce matin. Des noms circulent. Des théories naissent et meurent en quelques secondes. ${randAlive.name} a été mentionné(e) plusieurs fois. Pour rien. Ou peut-être pas.`
+    });
+  }
+
+  const chosen = pool[Math.floor(Math.random()*pool.length)];
+  pushNarr(chosen);
+}
 
 async function applyEvent(ev){
   const room = await dbGet('rooms/'+roomCode);
@@ -1098,6 +1368,25 @@ async function killPlayer(playerId, source){
   }
   if(p.mayor) await pushLog(`👑 Le Maire est mort ! Désignez un nouveau maire.`,'system');
 
+  // Chasseur: trigger shot on elimination
+  if(p.role === 'Chasseur' && !room.game?.hunterUsed){
+    await dbUpdate('rooms/'+roomCode+'/game',{hunterUsed:true});
+    pushNarr({fire:'🏹',color:'#a08040',title:'Le Dernier Tir du Chasseur',text:`${p.name} tombe… mais pas sans riposter. Le Chasseur peut encore choisir qui l'accompagne dans la mort. Son regard cherche une dernière cible dans la foule.`});
+    // Show modal for the hunter's player to pick a target
+    if(me.id === playerId){
+      const freshRoom = await dbGet('rooms/'+roomCode);
+      const targets = Object.values(freshRoom.players||{}).filter(q=>q.alive&&q.id!==playerId);
+      if(targets.length > 0){
+        setTimeout(()=>{
+          openModal('🏹 Dernier Tir — Choisissez votre cible',
+            `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Vous êtes éliminé(e) mais votre flèche peut encore frapper !</p>`+
+            targets.map(t=>`<button class="m-opt red" onclick="window._kill('${t.id}','chasseur');closeModal()">${t.avatar} ${esc(t.name)}</button>`).join('')
+          );
+        }, 2000);
+      }
+    }
+  }
+
   await checkVictory();
 }
 
@@ -1123,6 +1412,86 @@ window._protect = async function(id){
   await dbUpdate('rooms/'+roomCode+'/players/'+id,{protected:true});
   const r=await dbGet('rooms/'+roomCode+'/players/'+id);
   if(r) await pushLog(`🛡️ ${r.name} est protégé(e) ce tour.`,'info');
+};
+
+// ================================================================
+// WOLF PRIVATE CHAT
+// ================================================================
+let wolfChatRendered = 0;
+window.sendWolfChat = async function(){
+  const inp=document.getElementById('wolf-in');
+  const text=inp.value.trim();
+  if(!text) return;
+  inp.value='';
+  const ts=Date.now();
+  await dbSet('rooms/'+roomCode+'/wolfchat/'+ts+'_'+me.id.substr(0,5),{
+    id:me.id, name:me.name, avatar:me.avatar, text, ts
+  });
+};
+function renderWolfChat(room){
+  const msgs = room.wolfchat ? Object.values(room.wolfchat).sort((a,b)=>a.ts-b.ts) : [];
+  const c=document.getElementById('wolf-msgs');
+  if(!c) return;
+  if(msgs.length===wolfChatRendered) return;
+  wolfChatRendered=msgs.length;
+  c.innerHTML='';
+  msgs.forEach(m=>{
+    const d=document.createElement('div');
+    const isMe=m.id===me.id;
+    d.style.cssText=`font-size:.78rem;color:${isMe?'var(--moon)':'#e07070'};`;
+    d.innerHTML=`<strong>${m.avatar} ${esc(m.name)}:</strong> <span style="color:var(--moon2)">${esc(m.text)}</span>`;
+    c.appendChild(d);
+  });
+  c.scrollTop=c.scrollHeight;
+}
+document.getElementById('wolf-in')?.addEventListener('keypress',e=>{if(e.key==='Enter')sendWolfChat();});
+
+// ================================================================
+// WOLF RAGE MODAL (Loup Enragé — nuit 3, 6, 9...)
+// ================================================================
+async function wolfRageModal(room){
+  const targets=Object.values(room.players||{}).filter(p=>p.alive&&ALL_ROLES[p.role]?.camp!=='loup');
+  openModal('🔥 Nuit Enragée — Tuer 2 cibles',
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Choisissez votre première cible. Vous devrez ensuite choisir la seconde.</p>`+
+    targets.map(p=>`<button class="m-opt red" onclick="window._rageKill('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+  );
+}
+let rageFirstKill = null;
+window._rageKill = async function(id){
+  if(!rageFirstKill){
+    rageFirstKill = id;
+    const room=await dbGet('rooms/'+roomCode);
+    const targets=Object.values(room.players||{}).filter(p=>p.alive&&ALL_ROLES[p.role]?.camp!=='loup'&&p.id!==id);
+    openModal('🔥 Deuxième Cible',
+      `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Choisissez votre seconde victime !</p>`+
+      targets.map(p=>`<button class="m-opt red" onclick="window._rageKill('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+    );
+  } else {
+    const first = rageFirstKill;
+    rageFirstKill = null;
+    await killPlayer(first,'nuit');
+    await killPlayer(id,'nuit');
+  }
+};
+
+// ================================================================
+// FLEA WOLF MODAL (Loup aux Puces)
+// ================================================================
+async function fleaModal(room){
+  const targets=Object.values(room.players||{}).filter(p=>p.alive&&ALL_ROLES[p.role]?.camp!=='loup'&&p.id!==me.id);
+  openModal('🐜 Loup aux Puces — Infecter',
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Cette personne deviendra Loup-Garou dans 2 tours, sans s'en rendre compte immédiatement.</p>`+
+    targets.map(p=>`<button class="m-opt red" onclick="window._flea('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+  );
+}
+window._flea = async function(id){
+  const room=await dbGet('rooms/'+roomCode);
+  const p=room?.players?.[id];
+  if(!p) return;
+  // Store the flea target and the turn it was applied
+  await dbUpdate('rooms/'+roomCode+'/game',{fleaUsed:true, fleaTarget:id, fleaTurn:room.game.turn});
+  await pushLog(`🐜 Le Loup aux Puces a semé ses puces en secret…`,'night');
+  pushNarr({fire:'🐜',color:'#8a6030',title:'La Contamination',text:`Dans l'obscurité, quelque chose a rampé sur ${p.name}. Invisible, indolore. Pour l'instant. Mais dans quelques nuits, ${p.name} entendra l'appel de la meute…`});
 };
 
 
@@ -1155,7 +1524,7 @@ async function illusionModal(room){
   );
 }
 window._illuse = async function(id){
-  await dbUpdate('rooms/'+roomCode+'/game',{illusionTarget:id});
+  await dbUpdate('rooms/'+roomCode+'/game',{illusionTarget:id, illusionUsedThisNight:true});
   await pushLog(`🪄 L'Illusionniste brouille les cartes…`,'night');
 };
 
@@ -1244,18 +1613,19 @@ window._seer = async function(id){
   const room=await dbGet('rooms/'+roomCode);
   const p=await dbGet('rooms/'+roomCode+'/players/'+id);
   if(!p) return;
+  // Mark seer as used this night
+  await dbUpdate('rooms/'+roomCode+'/game',{seerUsed:true});
   // Check if illusionist has faked this player
   const illusionTarget = room?.game?.illusionTarget;
   let displayRole = p.role;
   let faked = false;
   if(illusionTarget === id){
-    // Show a random wrong role from a different camp
     const allRoleNames = Object.keys(ALL_ROLES);
     const myRoleData = ALL_ROLES[p.role];
     const otherRoles = allRoleNames.filter(r=>ALL_ROLES[r].camp !== myRoleData?.camp);
     displayRole = otherRoles[Math.floor(Math.random()*otherRoles.length)] || p.role;
     faked = true;
-    await dbUpdate('rooms/'+roomCode+'/game',{illusionTarget:null});
+    await dbUpdate('rooms/'+roomCode+'/game',{illusionTarget:null, illusionUsedThisNight:false});
   }
   const rd=ALL_ROLES[displayRole];
   openModal('🔮 Révélation',`<div style="text-align:center;padding:18px;">
@@ -1263,7 +1633,7 @@ window._seer = async function(id){
     <div style="font-family:'Cinzel Decorative',serif;font-size:.95rem;">${esc(p.name)}</div>
     <div style="font-size:.82rem;color:var(--smoke);margin-top:5px;font-style:italic;">${rd?.emoji} ${displayRole}</div>
     <div style="font-size:.79rem;color:var(--smoke);margin-top:4px;">${rd?.desc||''}</div>
-    ${faked?'<div style="font-size:.72rem;color:#c0a0ff;margin-top:8px;font-style:italic;">⚠️ Cette vision pourrait être altérée…</div>':''}
+    ${faked?'<div style="font-size:.72rem;color:#c0a0ff;margin-top:8px;font-style:italic;">⚠️ Cette vision a peut-être été altérée par une force mystérieuse…</div>':''}
   </div>`);
 };
 
@@ -1379,16 +1749,33 @@ window.sendChat = async function(){
 };
 
 function renderChat(room){
+  // Merge chat messages and log entries, sorted by timestamp
   const msgs = room.chat ? Object.values(room.chat).sort((a,b)=>a.ts-b.ts) : [];
-  if(msgs.length===chatRendered) return;
-  chatRendered=msgs.length;
+  const logs = room.log ? Object.values(room.log).sort((a,b)=>a.ts-b.ts) : [];
+
+  const total = msgs.length + logs.length;
+  if(total===chatRendered) return;
+  chatRendered=total;
+
   const c=document.getElementById('chat-msgs');
   c.innerHTML='';
-  msgs.forEach(m=>{
+
+  // Merge and sort all entries
+  const all = [
+    ...msgs.map(m=>({...m,_type:'chat'})),
+    ...logs.map(l=>({...l,_type:'log'}))
+  ].sort((a,b)=>a.ts-b.ts);
+
+  all.forEach(m=>{
     const d=document.createElement('div');
-    const isMe=m.id===me.id;
-    d.className='c-msg';
-    d.innerHTML=`<span class="c-author ${m.dead?'dead':''} ${isMe?'me-author':''}">${m.avatar} ${esc(m.name)}: </span><span class="c-text">${esc(m.text)}</span>`;
+    if(m._type==='log'){
+      d.className=`c-msg sys ${m.type||''}`;
+      d.textContent=m.text;
+    } else {
+      const isMe=m.id===me.id;
+      d.className='c-msg';
+      d.innerHTML=`<span class="c-author ${m.dead?'dead':''} ${isMe?'me-author':''}">${m.avatar} ${esc(m.name)}: </span><span class="c-text">${esc(m.text)}</span>`;
+    }
     c.appendChild(d);
   });
   c.scrollTop=c.scrollHeight;
@@ -1462,7 +1849,7 @@ function showVictory(v){
 window.backToWelcome = function(){
   if(unsubRoom) unsubRoom();
   if(timerInterval) clearInterval(timerInterval);
-  chatRendered=0; lastSeenLogLen=0; lastSeenNarrLen=0; narrQueue=[]; narrActive=false;
+  chatRendered=0; wolfChatRendered=0; lastSeenLogLen=0; lastSeenNarrLen=0; narrQueue=[]; narrActive=false;
   selectedRoles=new Set(['Loup-Garou','Villageois','Voyante']);
   showScreen('welcome');
 };
@@ -1514,3 +1901,4 @@ document.getElementById('modal-ov').addEventListener('click',e=>{if(e.target===d
 </script>
 </body>
 </html>
+
