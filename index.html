@@ -824,11 +824,15 @@ function onRoomUpdate(room) {
       showScreen('game');
       renderMyRole(room);
       startTimerLoop();
+    } else if(!timerInterval) {
+      // Restart timer after phase switch cleared it
+      startTimerLoop();
     }
     updateGameView(room);
     renderChat(room);
     checkNewLogNarr(room);
     checkNewNarr(room);
+    checkDawnWhisper(room);
   }
 
   if(room.status==='ended' && room.game?.victory){
@@ -1043,10 +1047,42 @@ function renderActions(room) {
     if(role==='Avocat')                        add('⚖️ Protéger du vote','',()=>advocateModal(room));
     if(role==='Loup aux Puces'&&!g.fleaUsed)   add('🐜 Infecter lentement','red',()=>fleaModal(room));
   } else {
-    // Day — everyone votes
-    add('⚖️ Voter pour éliminer','red',()=>voteModal(room));
-    if(role==='Dieu du Village'&&!g.godUsed)   add('✨ Annuler une élim.','purple',()=>godModal(room));
-    if(role==='Maire')                         add('👑 Passer la couronne','',()=>mayorPassModal(room));
+    // DAY — vote system
+    const votes = g.dayVotes || {};
+    const alivePlayers = players.filter(p=>p.alive);
+    const votedCount = alivePlayers.filter(p=>votes[p.id]).length;
+    const myVote = votes[me.id];
+
+    // Vote progress bar
+    const pct = alivePlayers.length > 0 ? Math.round(votedCount/alivePlayers.length*100) : 0;
+    btns.innerHTML += `<div style="margin-bottom:8px;">
+      <div style="font-size:.75rem;color:var(--smoke);margin-bottom:4px;font-style:italic;">📊 ${votedCount}/${alivePlayers.length} joueurs ont voté</div>
+      <div style="background:rgba(255,255,255,.06);border-radius:4px;height:4px;overflow:hidden;">
+        <div style="background:var(--blood2);height:100%;width:${pct}%;transition:width .4s;"></div>
+      </div>
+    </div>`;
+
+    // Show current tally if any votes
+    if(votedCount > 0){
+      const tally = {};
+      Object.entries(votes).forEach(([vid,tid])=>{
+        const w = players.find(p=>p.id===vid)?.mayor ? 2 : 1;
+        tally[tid] = (tally[tid]||0)+w;
+      });
+      const tallyStr = Object.entries(tally).sort((a,b)=>b[1]-a[1])
+        .map(([id,v])=>{ const p=players.find(x=>x.id===id); return `${p?.avatar||''} ${p?.name||'?'} <strong style="color:#e07070">${v}</strong>`; })
+        .join(' &nbsp;·&nbsp; ');
+      btns.innerHTML += `<div style="font-size:.78rem;color:var(--smoke);font-style:italic;margin-bottom:6px;">${tallyStr}</div>`;
+    }
+
+    if(!myVote){
+      add('⚖️ Voter pour éliminer','red',()=>voteModal(room));
+    } else {
+      const target = players.find(p=>p.id===myVote);
+      btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:`✅ Voté contre ${target?.name||'?'} — en attente des autres…`}));
+    }
+    if(role==='Dieu du Village'&&!g.godUsed) add('✨ Annuler une élim.','purple',()=>godModal(room));
+    if(role==='Maire') add('👑 Passer la couronne','',()=>mayorPassModal(room));
   }
 }
 
@@ -1072,15 +1108,31 @@ function startTimerLoop(){
     if(el){el.textContent=rem+'s'; el.className='ph-timer'+(rem<=10?' urgent':'');}
     if(rem<=0) {
       clearInterval(timerInterval);
-      // Only the "coordinator" (player with lowest id alphabetically among alive players) switches phase
+      timerInterval = null;
       const players = localRoom?.players ? Object.values(localRoom.players) : [];
       const alive = players.filter(p=>p.alive);
       const coordinator = alive.length > 0 ? alive.sort((a,b)=>a.id.localeCompare(b.id))[0] : null;
       if(coordinator && coordinator.id === me.id) {
-        switchPhase(g.phase==='night'?'day':'night');
+        // Only switch if day hasn't already ended via votes
+        if(g.phase === 'day'){
+          // On day timeout, auto-resolve votes with whoever has most
+          (async()=>{
+            const room = await dbGet('rooms/'+roomCode);
+            const votes = room?.game?.dayVotes || {};
+            if(Object.keys(votes).length > 0){
+              await resolveVote(room);
+            } else {
+              await switchPhase('night');
+            }
+          })();
+        } else {
+          switchPhase('day');
+        }
       } else if(!coordinator) {
-        // fallback: host switches
-        if(isHost) switchPhase(g.phase==='night'?'day':'night');
+        if(isHost){
+          if(g.phase==='night') switchPhase('day');
+          else switchPhase('night');
+        }
       }
     }
   }, 500);
@@ -1108,6 +1160,9 @@ async function switchPhase(newPhase){
     // Reset protection
     const players = room.players ? Object.values(room.players) : [];
     players.forEach(p=>{ updates['rooms/'+roomCode+'/players/'+p.id+'/protected']=false; });
+  } else {
+    // Reset votes for new day
+    updates['rooms/'+roomCode+'/game/dayVotes'] = null;
   }
   await update(ref(db), updates);
   const turn = newPhase==='night' ? (g.turn||1)+1 : g.turn;
@@ -1121,10 +1176,10 @@ async function switchPhase(newPhase){
   const freshRoom = await dbGet('rooms/'+roomCode);
   if(freshRoom) {
     await maybeEvent(freshRoom.game);
-    // Flea wolf infection check (infects after 2 turns)
     await checkFleaInfection(freshRoom);
-    // Ambient narrative event
     await maybeAmbientNarr(freshRoom);
+    // Dawn whispers for each player at start of day
+    if(newPhase==='day') await pushDawnWhispers(freshRoom);
   }
   if(newPhase==='day') await checkVictory();
 }
@@ -1145,6 +1200,128 @@ async function maybeEvent(g){
   }
 }
 
+
+// ================================================================
+// DAWN WHISPERS — personalized per-role message at start of each day
+// ================================================================
+async function pushDawnWhispers(room){
+  const players = Object.values(room.players||{}).filter(p=>p.alive);
+  const dead = Object.values(room.players||{}).filter(p=>!p.alive);
+  const lastDead = dead.length > 0 ? dead[dead.length-1] : null;
+  const turn = room.game?.turn || 1;
+
+  const getDawnMsg = (p, lastDead, allAlive) => {
+    const others = allAlive.filter(x=>x.id!==p.id);
+    const suspect = others.length ? others[Math.floor(Math.random()*others.length)] : null;
+    const deadName = lastDead?.name || null;
+
+    const pool = {
+      'Loup-Garou': [
+        deadName ? `Le corps de ${deadName} a été retrouvé au lever du soleil. Le village est en deuil. C'est exactement ce que tu voulais, ${p.name}. Garde ton calme et laisse les autres s'accuser.` : `Une nouvelle journée commence, ${p.name}. Le village cherche un coupable — assure-toi que ce ne soit jamais toi.`,
+        `${p.name}, les loups ont frappé dans l'ombre. Aujourd'hui, prends les devants : accuse ${suspect?.name||'quelqu\'un'} avant qu'on t'accuse. Les innocents hésitent. Pas toi.`,
+      ],
+      'Loup Blanc': [
+        `${p.name}, tu joues des deux côtés de l'échiquier. Les loups te croient des leurs, le village pense pareil. Pour l'instant, laisse les autres s'éliminer. Ta victoire est solitaire.`,
+        deadName ? `${deadName} est mort(e), et le village gronde. ${p.name}, reste discret. Ta vraie menace, ce sont les loups eux-mêmes. Le moment de les trahir approche.` : `${p.name}, ni loup ni villageois — tu es seul contre tous. Et c'est exactement là où tu dois être.`,
+      ],
+      'Loup Infectieux': [
+        `${p.name}, ton infection agit en silence. Observe les comportements autour de toi — quelqu'un a peut-être déjà changé de camp sans s'en rendre compte encore.`,
+      ],
+      'Loup Enragé': [
+        `${p.name}, ta rage sommeille jusqu'à la prochaine nuit. Aujourd'hui, joue l'innocent. Accuse, crie, pleure si nécessaire. Les meilleurs menteurs ressemblent aux meilleures victimes.`,
+      ],
+      'Loup aux Puces': [
+        `${p.name}, tes puces font leur travail invisible. Reste calme. Ce que tu as semé cette nuit portera ses fruits bientôt.`,
+      ],
+      'Voyante': [
+        `${p.name}, tu sais des choses que les autres ignorent. Mais comment les révéler sans paraître suspect ? Chaque accusation directe pourrait te coûter la vie. Sois subtil.`,
+        deadName ? `${deadName} a été frappé(e) cette nuit, ${p.name}. Tes visions t'ont-elles prévenu(e) ? Utilise ce que tu sais — mais avec prudence.` : `${p.name}, tes yeux ont vu la vérité cette nuit. À toi maintenant de guider le village sans te dévoiler.`,
+      ],
+      'Sorcière': [
+        `${p.name}, tes potions valent plus que de l'or. Une vie, une mort — chaque flacon est une décision irrévocable. Ne les gaspille pas sur une erreur.`,
+        deadName ? `${deadName} a quitté le monde cette nuit, ${p.name}. L'aurais-tu sauvé(e) si tu l'avais su à temps ? Garde ta potion de vie pour quelqu'un qui change vraiment la partie.` : `${p.name}, une nouvelle journée de débats commence. Écoute, observe — ta potion agira quand la situation sera vraiment critique.`,
+      ],
+      'Chasseur': [
+        `${p.name}, ta flèche n'a qu'une seule cible, mais elle est garantie. Aujourd'hui, observe qui se comporte étrangement. Peut-être que cette personne mérite d'être ton dernier tir.`,
+        `${p.name}, si quelqu'un essaie de t'éliminer aujourd'hui, rappelle-toi : tu ne mourras pas seul. Cette certitude devrait te donner confiance.`,
+      ],
+      'Garde du Corps': [
+        deadName ? `${deadName} n'était pas sous ta protection cette nuit, ${p.name}. Qui protéger maintenant ? Choisis wisément ce soir.` : `${p.name}, personne n'est mort cette nuit. Peut-être que ta présence a suffi à faire hésiter les loups. Ou peut-être que ce n'est que partie remise.`,
+        `${p.name}, tu veilles dans l'ombre. Le village ne sait pas que tu existes, et c'est ta force.`,
+      ],
+      'Dieu du Village': [
+        `${p.name}, ta grâce divine peut encore sauver une âme. Mais les dieux qui interviennent trop tôt perdent leur mystère. Garde ton pouvoir pour le moment décisif.`,
+      ],
+      'Chronomancien': [
+        `${p.name}, le temps peut encore être remodelé. Mais une seule fois. Observe ce qui se déroule aujourd'hui — certaines erreurs méritent vraiment d'être effacées.`,
+      ],
+      'Nécromancien': [
+        `${p.name}, les morts t'ont murmuré leurs secrets cette nuit. Une information que personne d'autre ne possède. Mais les morts savent aussi se taire quand on les interroge de la mauvaise façon.`,
+      ],
+      'Cupidon': [
+        `${p.name}, les amoureux que tu as liés portent leur destinée commune. Regarde-les aujourd'hui — se protègent-ils ? Se trahissent-ils ? Leur lien peut sauver ou détruire le village.`,
+      ],
+      'Maire': [
+        `${p.name}, le village attend ta guidance. Ta voix compte double — c'est une lame à double tranchant. Si tu désignes le mauvais aujourd'hui, le sang sera sur tes mains.`,
+        deadName ? `${deadName} n'est plus là, ${p.name}. En tant que Maire, le village te regarde pour trouver le responsable. Mesure chaque mot.` : `${p.name}, Maire du village, ta légitimité dépend de tes décisions. Prends les devants.`,
+      ],
+      'Illusionniste': [
+        `${p.name}, la confusion que tu as semée dans l'esprit de la Voyante pourrait changer les accusations d'aujourd'hui. Observe si quelqu'un accuse dans la mauvaise direction.`,
+      ],
+      'Hypnotiseur': [
+        `${p.name}, ta suggestion est active. Regarde si ta cible vote comme tu l'as ordonné. Si oui, tu contrôles plus que les autres ne le soupçonnent.`,
+      ],
+      'Usurpateur': [
+        `${p.name}, tu portes en toi un pouvoir volé. Personne ne sait ce dont tu es vraiment capable. C'est ton arme la plus précieuse.`,
+      ],
+      'Avocat': [
+        `${p.name}, ton client est protégé ce vote. Assure-toi que sa survie te profite… ou qu'il le mérite vraiment.`,
+      ],
+      'Traître': [
+        `${p.name}, tu joues encore le villageois. Pour combien de temps encore ? Écoute la meute dans l'ombre — le moment de changer de camp approche peut-être.`,
+      ],
+      'Marionnettiste': [
+        `${p.name}, tes fils ont agi cette nuit. Observe les conséquences de tes manipulations dans les comportements d'aujourd'hui.`,
+      ],
+      'Villageois': [
+        deadName ? `${deadName} a été tué(e) cette nuit. Quelqu'un parmi vous le savait. Quelqu'un a peut-être même ordonné ça. ${p.name}, observe les réactions — la culpabilité laisse des traces.` : `${p.name}, une nouvelle nuit s'est passée sans mort. Les loups ont hésité. Ou attendu. Profite de cette journée pour observer ${suspect?.name||'les autres'} de plus près.`,
+        `${p.name}, tu n'as aucun pouvoir surnaturel. Mais tu as des yeux, une mémoire, et un vote. ${suspect ? `Ce matin, quelque chose dans le regard de ${suspect.name} te semble différent. Peut-être rien. Peut-être tout.` : 'Analyse. Écoute. Déduis.'}`,
+      ],
+    };
+
+    const msgs = pool[p.role] || [`${p.name}, une nouvelle journée commence. Reste vigilant.`];
+    return msgs[Math.floor(Math.random()*msgs.length)];
+  };
+
+  const whispers = {};
+  players.forEach(p=>{
+    whispers[p.id] = {
+      text: getDawnMsg(p, lastDead, players),
+      turn, ts: Date.now()
+    };
+  });
+  await dbSet('rooms/'+roomCode+'/dawnWhispers', whispers);
+}
+
+// Called each render cycle — shows whisper to current player only
+let shownDawnTurns = new Set();
+function checkDawnWhisper(room){
+  if(!room.dawnWhispers || room.game?.phase !== 'day') return;
+  const w = room.dawnWhispers[me.id];
+  if(!w) return;
+  const key = `${roomCode}_dawn_${w.turn}`;
+  if(shownDawnTurns.has(key)) return;
+  shownDawnTurns.add(key);
+  const myP = room.players?.[me.id];
+  const rd = ALL_ROLES[myP?.role];
+  // Private local narr (not pushed to Firebase)
+  queueNarr({
+    fire: rd?.emoji || '🌅',
+    color: rd?.camp==='loup' ? '#e07070' : rd?.camp==='neutre' ? '#c0a0ff' : '#c8a050',
+    title: `Jour ${w.turn} — Ce que vous ressentez`,
+    text: w.text
+  });
+}
 
 async function checkFleaInfection(room){
   const g = room.game;
@@ -1333,8 +1510,8 @@ async function applyEvent(ev){
   }
   if(ev.name==='Potion Retrouvée'){
     const g=room.game;
-    if(g?.witchLifeUsed){await dbUpdate('rooms/'+roomCode+'/game',{witchLifeUsed:false});await pushLog('🧪 La Sorcière récupère sa potion de vie !','info');}
-    else if(g?.witchDeathUsed){await dbUpdate('rooms/'+roomCode+'/game',{witchDeathUsed:false});await pushLog('🧪 La Sorcière récupère sa potion de mort !','info');}
+    if(g?.witchLifeUsed){await dbUpdate('rooms/'+roomCode+'/game',{witchLifeUsed:false});}
+    else if(g?.witchDeathUsed){await dbUpdate('rooms/'+roomCode+'/game',{witchDeathUsed:false});}
   }
 }
 
@@ -1345,10 +1522,10 @@ async function killPlayer(playerId, source){
   const room = await dbGet('rooms/'+roomCode);
   const p = room?.players?.[playerId];
   if(!p||!p.alive) return;
-  if(p.protected){await pushLog(`🛡️ ${p.name} était protégé — l'attaque échoue !`,'info');return;}
+  if(p.protected){await pushLog(`🛡️ ${p.name} était protégé — l'attaque a échoué.`,'info');return;}
 
   await dbUpdate('rooms/'+roomCode+'/players/'+playerId,{alive:false});
-  await pushLog(`💀 ${p.name} (${p.role}) a été éliminé — ${source}.`,'death');
+  await pushLog(`💀 ${p.name} a été éliminé(e).`,'death');
 
   const narr = source==='nuit'||source==='loups'
     ? {fire:'🌑',color:'#e07070',title:'La Nuit a Frappé',text:`Les ombres ont déchiré le silence. Ce matin, les villageois ont retrouvé ${p.name} — ${ALL_ROLES[p.role]?.emoji||''} ${p.role} — froid et immobile. Le givre recouvrait ses lèvres comme si la mort avait scellé ses secrets.`}
@@ -1406,12 +1583,12 @@ window._setMayor = async function(id){
 window._revive = async function(id){
   await dbUpdate('rooms/'+roomCode+'/players/'+id,{alive:true});
   const r=await dbGet('rooms/'+roomCode+'/players/'+id);
-  if(r) await pushLog(`✨ ${r.name} est ressuscité(e) !`,'info');
+  if(r) await pushLog(`✨ ${r.name} est de retour parmi les vivants.`,'info');
 };
 window._protect = async function(id){
   await dbUpdate('rooms/'+roomCode+'/players/'+id,{protected:true});
   const r=await dbGet('rooms/'+roomCode+'/players/'+id);
-  if(r) await pushLog(`🛡️ ${r.name} est protégé(e) ce tour.`,'info');
+  // no log — secret
 };
 
 // ================================================================
@@ -1490,7 +1667,7 @@ window._flea = async function(id){
   if(!p) return;
   // Store the flea target and the turn it was applied
   await dbUpdate('rooms/'+roomCode+'/game',{fleaUsed:true, fleaTarget:id, fleaTurn:room.game.turn});
-  await pushLog(`🐜 Le Loup aux Puces a semé ses puces en secret…`,'night');
+  // no log — secret
   pushNarr({fire:'🐜',color:'#8a6030',title:'La Contamination',text:`Dans l'obscurité, quelque chose a rampé sur ${p.name}. Invisible, indolore. Pour l'instant. Mais dans quelques nuits, ${p.name} entendra l'appel de la meute…`});
 };
 
@@ -1512,7 +1689,7 @@ window._infect = async function(id){
   if(!p) return;
   await dbUpdate('rooms/'+roomCode+'/players/'+id,{role:'Loup-Garou'});
   await dbUpdate('rooms/'+roomCode+'/game',{infectUsed:true});
-  await pushLog(`🦠 Le Loup Infectieux a agi… (résultat secret).`,'night');
+  // no log — secret
   pushNarr({fire:'🦠',color:'#c07040',title:'L\'Infection Se Répand',text:`Dans le silence de la nuit, quelqu'un a reçu la morsure transformatrice. Demain matin, le village comptera peut-être un loup de plus sans le savoir…`});
 };
 
@@ -1525,7 +1702,7 @@ async function illusionModal(room){
 }
 window._illuse = async function(id){
   await dbUpdate('rooms/'+roomCode+'/game',{illusionTarget:id, illusionUsedThisNight:true});
-  await pushLog(`🪄 L'Illusionniste brouille les cartes…`,'night');
+  // no log — secret
 };
 
 async function hypnoModal(room){
@@ -1538,7 +1715,7 @@ async function hypnoModal(room){
 window._hypno = async function(id){
   const room=await dbGet('rooms/'+roomCode);
   const p=room?.players?.[id];
-  if(p) await pushLog(`🌀 L'Hypnotiseur contrôle ${p.name} pour le prochain vote.`,'night');
+  // no log — secret
 };
 
 async function usurpModal(room){
@@ -1559,7 +1736,7 @@ window._usurp = async function(id){
       <div style="color:var(--smoke);font-size:.83rem;margin-top:6px;font-style:italic;">${rd?.desc||''}</div>
       <div style="color:var(--ember2);font-size:.8rem;margin-top:10px;">Pouvoir actif pour ce tour uniquement.</div>
     </div>`);
-    await pushLog(`🎭 L'Usurpateur a copié un pouvoir secret.`,'night');
+    // no log — secret
   }
 };
 
@@ -1573,7 +1750,7 @@ async function puppetModal(room){
 window._puppet = async function(id){
   const room=await dbGet('rooms/'+roomCode);
   const p=room?.players?.[id];
-  if(p) await pushLog(`🧵 Le Marionnettiste tire ses fils sur ${p.name}…`,'night');
+  // no log — secret
 };
 
 async function advocateModal(room){
@@ -1637,27 +1814,119 @@ window._seer = async function(id){
   </div>`);
 };
 
+// ================================================================
+// VOTE SYSTEM — tracks per-player votes, auto-resolves when all voted
+// ================================================================
 async function voteModal(room){
-  const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
+  const g = room.game;
+  const myVote = g?.dayVotes?.[me.id];
+  if(myVote){
+    const target = Object.values(room.players||{}).find(p=>p.id===myVote);
+    openModal('✅ Déjà voté',`<div style="text-align:center;padding:14px;color:var(--smoke);font-style:italic;">
+      Votre vote contre <strong style="color:var(--moon)">${target?.name||'?'}</strong> est enregistré.<br>
+      Attendez que tous aient voté…
+    </div>`);
+    return;
+  }
+  const players = Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
   openModal('⚖️ Voter pour éliminer',
-    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Votre vote sera enregistré et visible de tous dans le chat.</p>`+
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Vote irrévocable — le joueur avec le plus de voix sera éliminé.</p>`+
     players.map(p=>`<button class="m-opt red" onclick="window._vote('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
   );
 }
-window._vote = async function(id){
-  const room=await dbGet('rooms/'+roomCode);
-  const voter=room?.players?.[me.id];
-  const target=room?.players?.[id];
-  if(voter&&target) await pushLog(`🗳️ ${voter.name} vote contre ${target.name}.`,'day');
+
+window._vote = async function(targetId){
+  const room = await dbGet('rooms/'+roomCode);
+  if(!room?.game || room.game.phase !== 'day') return;
+  const voter = room.players?.[me.id];
+  const target = room.players?.[targetId];
+  if(!voter?.alive || !target?.alive) return;
+  if(room.game.dayVotes?.[me.id]) return; // already voted
+
+  const weight = voter.mayor ? 2 : 1;
+  const voteUpdate = {};
+  voteUpdate[`rooms/${roomCode}/game/dayVotes/${me.id}`] = targetId;
+  await update(ref(db), voteUpdate);
+  await pushLog(`🗳️ ${voter.name} vote contre ${target.name}.${voter.mayor?' (voix ×2)':''}`, 'day');
+
+  // Check if all alive players have now voted
+  const freshRoom = await dbGet('rooms/'+roomCode);
+  const alivePlayers = Object.values(freshRoom.players||{}).filter(p=>p.alive);
+  const votes = freshRoom.game?.dayVotes || {};
+  const votedCount = alivePlayers.filter(p=>votes[p.id]).length;
+
+  if(votedCount >= alivePlayers.length){
+    // Only coordinator resolves to avoid duplicate processing
+    const coordinator = alivePlayers.sort((a,b)=>a.id.localeCompare(b.id))[0];
+    if(coordinator?.id === me.id){
+      await resolveVote(freshRoom);
+    }
+  }
 };
 
+async function resolveVote(room){
+  const votes = room.game?.dayVotes || {};
+  const players = room.players || {};
+
+  // Tally votes (mayor = 2)
+  const tally = {};
+  Object.entries(votes).forEach(([vid, tid])=>{
+    const w = players[vid]?.mayor ? 2 : 1;
+    tally[tid] = (tally[tid]||0) + w;
+  });
+
+  if(!Object.keys(tally).length) { await switchPhase('night'); return; }
+
+  const maxVotes = Math.max(...Object.values(tally));
+  const top = Object.keys(tally).filter(id=>tally[id]===maxVotes);
+  // Tiebreak: random
+  const eliminated = top[Math.floor(Math.random()*top.length)];
+  const p = players[eliminated];
+
+  // Results log
+  const summary = Object.entries(tally)
+    .sort((a,b)=>b[1]-a[1])
+    .map(([id,v])=>`${players[id]?.name||'?'} (${v})`)
+    .join(', ');
+  await pushLog(`📊 Résultats : ${summary}`, 'day');
+  await pushLog(`⚖️ ${p?.name} est éliminé(e) par le vote du village.`, 'death');
+
+  // Clear votes
+  await dbUpdate('rooms/'+roomCode+'/game', {dayVotes: null});
+
+  // Kill or avocat protection
+  if(p?.protected){
+    await pushLog(`🛡️ ${p.name} était protégé(e) — le vote n'a aucun effet !`, 'info');
+    pushNarr({fire:'⚖️',color:'#c8a050',title:'Le Village a Voté',
+      text:`La foule avait choisi. Mais au moment de la sentence, quelqu'un a brandi un acte de protection. ${p.name} reste en vie. Les visages se décomposent.`});
+  } else {
+    pushNarr({fire:'⚖️',color:'#e0c070',title:'La Justice du Village',
+      text:`Après les débats et les accusations, le village a tranché. ${p?.name} — les yeux cherchant encore un ami dans la foule — est conduit vers sa dernière demeure. Avait-il tort de vous faire confiance ?`});
+    await killPlayer(eliminated, 'vote');
+  }
+
+  // Transition to night
+  await switchPhase('night');
+}
+
 async function wolfVoteModal(room){
-  const players=Object.values(room.players||{}).filter(p=>p.alive&&ALL_ROLES[p.role]?.camp!=='loup');
-  openModal('🐺 Choisir une cible (loups)',
-    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Coordonnez-vous dans le chat !</p>`+
-    players.map(p=>`<button class="m-opt red" onclick="window._vote('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+  const players = Object.values(room.players||{}).filter(p=>p.alive&&ALL_ROLES[p.role]?.camp!=='loup');
+  openModal('🐺 Suggérer une cible (loups)',
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Votez en privé. Coordinatez-vous dans le chat des loups !</p>`+
+    players.map(p=>`<button class="m-opt red" onclick="window._wolfSuggest('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
   );
 }
+window._wolfSuggest = async function(id){
+  const room = await dbGet('rooms/'+roomCode);
+  const target = room?.players?.[id];
+  const me_p = room?.players?.[me.id];
+  if(target && me_p){
+    await dbSet('rooms/'+roomCode+'/wolfchat/'+Date.now()+'_v_'+me.id.substr(0,4),{
+      id:me.id, name:me.name, avatar:me.avatar,
+      text:`🗳️ Je propose ${target.avatar} ${target.name} comme cible cette nuit.`, ts:Date.now()
+    });
+  }
+};
 
 async function protectModal(room){
   const players=Object.values(room.players||{}).filter(p=>p.alive);
@@ -1677,7 +1946,7 @@ window._witchLife = async function(id){
   await dbUpdate('rooms/'+roomCode+'/players/'+id,{alive:true});
   await dbUpdate('rooms/'+roomCode+'/game',{witchLifeUsed:true});
   const p=await dbGet('rooms/'+roomCode+'/players/'+id);
-  if(p) await pushLog(`🧪 La Sorcière a ressuscité ${p.name} !`,'info');
+  if(p) await pushLog(`✨ Une main inconnue a arraché ${p.name} à la mort cette nuit…`,'info');
 };
 
 async function witchDeathModal(room){
@@ -1691,7 +1960,7 @@ window._witchDeath = async function(id){
   await dbUpdate('rooms/'+roomCode+'/game',{witchDeathUsed:true});
   const p=await dbGet('rooms/'+roomCode+'/players/'+id);
   if(p){
-    await pushLog(`☠️ La Sorcière a tué ${p.name} !`,'death');
+    await pushLog(`💀 ${p.name} a été retrouvé(e) sans vie cette nuit.`,'death');
     pushNarr({fire:'🧪',color:'#e07070',title:'Le Poison Frappe',text:`Dans le silence de la nuit, la Sorcière a levé son flacon de mort. ${p.name} n'a pas eu le temps de comprendre ce qui se passait. Le poison a fait son œuvre en quelques secondes.`});
     await checkVictory();
   }
@@ -1714,7 +1983,7 @@ window._god = async function(id){
 async function chronoAction(){
   const g=await dbGet('rooms/'+roomCode+'/game');
   await dbUpdate('rooms/'+roomCode+'/game',{turn:Math.max(1,(g?.turn||1)-1),chronoUsed:true});
-  await pushLog('⏳ Le Chronomancien rembobine le temps ! Le tour est rejoué.','chaos');
+  await pushLog('⏳ Une force mystérieuse semble avoir rembobiné le temps…','chaos');
   pushNarr({fire:'⏳',color:'#a0c0ff',title:'Le Temps Rembobine',text:'Un frisson étrange parcourt le village. Les ombres reculent. Quelques instants s\'effacent comme s\'ils n\'avaient jamais existé. Le Chronomancien sourit en rangeant son sablier.'});
 }
 
@@ -1849,7 +2118,7 @@ function showVictory(v){
 window.backToWelcome = function(){
   if(unsubRoom) unsubRoom();
   if(timerInterval) clearInterval(timerInterval);
-  chatRendered=0; wolfChatRendered=0; lastSeenLogLen=0; lastSeenNarrLen=0; narrQueue=[]; narrActive=false;
+  chatRendered=0; wolfChatRendered=0; lastSeenLogLen=0; lastSeenNarrLen=0; narrQueue=[]; narrActive=false; shownDawnTurns=new Set();
   selectedRoles=new Set(['Loup-Garou','Villageois','Voyante']);
   showScreen('welcome');
 };
@@ -1901,4 +2170,3 @@ document.getElementById('modal-ov').addEventListener('click',e=>{if(e.target===d
 </script>
 </body>
 </html>
-
