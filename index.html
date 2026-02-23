@@ -566,6 +566,73 @@ function playEventSound(){
   [523, 622, 740].forEach((f,i) => playTone(f, 'sine', 1.5, 0.03, 0.2+i*0.1, ctx));
 }
 
+// 💀 Sound: a player dies (dark toll)
+function playDeathSound(){
+  if(!audioEnabled) return;
+  const ctx = getAudioCtx();
+  // Bell toll — low & sinister
+  playTone(110, 'sine', 4, 0.12, 0, ctx);
+  playTone(116.54, 'sine', 3.5, 0.05, 0.05, ctx); // slight dissonance
+  // Sub thud
+  const sub = ctx.createOscillator();
+  const subGain = ctx.createGain();
+  sub.connect(subGain); subGain.connect(ctx.destination);
+  sub.type = 'sine'; sub.frequency.setValueAtTime(55, ctx.currentTime);
+  sub.frequency.exponentialRampToValueAtTime(30, ctx.currentTime+1);
+  subGain.gain.setValueAtTime(0.18, ctx.currentTime);
+  subGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+1.2);
+  sub.start(ctx.currentTime); sub.stop(ctx.currentTime+1.3);
+  // Eerie overtone fade
+  playTone(220, 'sine', 3, 0.03, 0.3, ctx);
+  playTone(440, 'sine', 2, 0.015, 0.6, ctx);
+}
+
+// 🐺 Sound: wolves win (dark triumphant howl)
+function playWolfVictorySound(){
+  if(!audioEnabled) return;
+  const ctx = getAudioCtx();
+  // Howl sweep
+  const howl = ctx.createOscillator();
+  const howlGain = ctx.createGain();
+  howl.connect(howlGain); howlGain.connect(ctx.destination);
+  howl.type = 'sawtooth';
+  howl.frequency.setValueAtTime(200, ctx.currentTime);
+  howl.frequency.linearRampToValueAtTime(800, ctx.currentTime+1.2);
+  howl.frequency.linearRampToValueAtTime(400, ctx.currentTime+2);
+  howlGain.gain.setValueAtTime(0, ctx.currentTime);
+  howlGain.gain.linearRampToValueAtTime(0.12, ctx.currentTime+0.2);
+  howlGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+2.5);
+  howl.start(ctx.currentTime); howl.stop(ctx.currentTime+2.6);
+  // Dark low chord
+  [55, 73.4, 87.3].forEach((f,i) => playTone(f, 'sine', 4, 0.06, 0.5+i*0.1, ctx));
+  // Dissonant stabs
+  [311, 370].forEach((f,i) => playTone(f, 'triangle', 1.5, 0.04, 1.5+i*0.2, ctx));
+}
+
+// 🌾 Sound: village wins (hopeful bells)
+function playVillageVictorySound(){
+  if(!audioEnabled) return;
+  const ctx = getAudioCtx();
+  // Ascending bright arpeggio
+  const melody = [261.63, 329.63, 392, 523.25, 659.25, 783.99];
+  melody.forEach((f,i) => playTone(f, 'sine', 2, 0.07, i*0.18, ctx));
+  // Warm pad chord
+  [196, 246.94, 293.66, 392].forEach((f,i) => playTone(f, 'triangle', 4, 0.04, 0.8+i*0.05, ctx));
+  // Final sustained bell
+  playTone(1046.5, 'sine', 3.5, 0.06, 1.5, ctx);
+  playTone(523.25, 'sine', 3.5, 0.05, 1.5, ctx);
+}
+
+// ❤️ Sound: lovers win (bittersweet)
+function playLoversVictorySound(){
+  if(!audioEnabled) return;
+  const ctx = getAudioCtx();
+  // Slow romantic arpeggio
+  [293.66, 370, 440, 523.25, 440, 370, 293.66].forEach((f,i) => playTone(f, 'sine', 2.5, 0.06, i*0.22, ctx));
+  // Warm harmony
+  [220, 277.18, 329.63].forEach((f,i) => playTone(f, 'triangle', 4, 0.04, 0.5+i*0.1, ctx));
+}
+
 // Enable audio on first interaction
 let audioEnabled = false;
 function enableAudio(){
@@ -1186,6 +1253,23 @@ function renderActions(room) {
     const alivePlayers = players.filter(p=>p.alive);
     const votedCount = alivePlayers.filter(p=>votes[p.id]).length;
     const myVote = votes[me.id];
+    
+    // Show fog/silence status banners
+    if(g.fogEnd && Date.now()<g.fogEnd){
+      const secs=Math.ceil((g.fogEnd-Date.now())/1000);
+      btns.innerHTML += `<div style="background:rgba(100,100,150,.15);border:1px solid rgba(150,150,200,.3);border-radius:8px;padding:8px 12px;font-size:.82rem;color:#a0a0d0;font-style:italic;">🌫️ Brouillard — Chat désactivé encore ${secs}s</div>`;
+    }
+    if(g.silencedPlayer===me.id && g.silencedTurn===(g.turn||1)){
+      btns.innerHTML += `<div style="background:rgba(100,80,50,.15);border:1px solid rgba(180,140,80,.3);border-radius:8px;padding:8px 12px;font-size:.82rem;color:#c0a070;font-style:italic;">🤫 Vous êtes réduit(e) au silence ce tour</div>`;
+    }
+    if(g.noDebate){
+      btns.innerHTML += `<div style="background:rgba(120,20,20,.15);border:1px solid rgba(200,40,40,.3);border-radius:8px;padding:8px 12px;font-size:.82rem;color:#e07070;font-style:italic;">🚫 Discussions interdites — Vote immédiat !</div>`;
+    }
+    if(g.duelActive && g.duelA && g.duelB){
+      const pA=players.find(p=>p.id===g.duelA);
+      const pB=players.find(p=>p.id===g.duelB);
+      btns.innerHTML += `<div style="background:rgba(100,60,0,.2);border:1px solid rgba(200,140,40,.4);border-radius:8px;padding:10px 12px;font-size:.85rem;color:#e0a040;margin-bottom:6px;">⚔️ <strong>Duel Obligatoire !</strong><br><span style="font-size:.78rem;color:var(--smoke);">Votez uniquement pour ${pA?.name||'?'} ou ${pB?.name||'?'}</span></div>`;
+    }
 
     // Vote progress bar
     const pct = alivePlayers.length > 0 ? Math.round(votedCount/alivePlayers.length*100) : 0;
@@ -1276,8 +1360,37 @@ function startTimerLoop(){
 // NIGHT KILL RESOLUTION — called when switching night → day
 // ================================================================
 async function resolveNightKill(g){
+  // Re-kill ghost (Retour des Morts) if active
+  if(g?.ghostPlayerId){
+    const ghostRoom = await dbGet('rooms/'+roomCode);
+    const ghost = ghostRoom?.players?.[g.ghostPlayerId];
+    if(ghost?.alive){
+      await dbUpdate('rooms/'+roomCode+'/players/'+g.ghostPlayerId,{alive:false});
+      await pushLog(`👻 ${ghost.name} retourne dans l'au-delà…`,'night');
+    }
+    await dbUpdate('rooms/'+roomCode+'/game',{ghostPlayerId:null});
+  }
+
+  // Voyante Aveuglée: clear flag
+  if(g?.eventSeerBlinded){
+    await dbUpdate('rooms/'+roomCode+'/game',{eventSeerBlinded:false});
+  }
+  // Clear silence
+  if(g?.silencedPlayer){
+    await dbUpdate('rooms/'+roomCode+'/game',{silencedPlayer:null, silencedTurn:null});
+  }
+  // Clear fog
+  if(g?.fogEnd){
+    await dbUpdate('rooms/'+roomCode+'/game',{fogEnd:null});
+  }
+  // Clear eventTwoDeaths (already applied this night)
+  // (done after kills below)
+
   const wolfVotes = g?.wolfVotes || {};
-  if(!Object.keys(wolfVotes).length) return; // No wolves voted
+  if(!Object.keys(wolfVotes).length){
+    await dbUpdate('rooms/'+roomCode+'/game',{eventTwoDeaths:false});
+    return;
+  }
 
   // Tally wolf votes
   const tally = {};
@@ -1287,6 +1400,18 @@ async function resolveNightKill(g){
   const targetId = top[Math.floor(Math.random()*top.length)];
 
   await killPlayer(targetId, 'nuit');
+
+  // Deux Morts Cette Nuit: kill a second random alive non-wolf
+  if(g?.eventTwoDeaths){
+    const freshRoom = await dbGet('rooms/'+roomCode);
+    const alive = Object.values(freshRoom?.players||{}).filter(p=>p.alive&&p.id!==targetId);
+    if(alive.length>0){
+      const second = alive[Math.floor(Math.random()*alive.length)];
+      await pushLog(`💀 La nuit réclame une seconde victime…`,'night');
+      await killPlayer(second.id,'nuit');
+    }
+    await dbUpdate('rooms/'+roomCode+'/game',{eventTwoDeaths:false});
+  }
 }
 
 // ================================================================
@@ -1309,6 +1434,7 @@ async function switchPhase(newPhase){
     updates['rooms/'+roomCode+'/game/seerUsed'] = false;
     // illusionUsedThisNight removed — using turn-based cooldown instead
     updates['rooms/'+roomCode+'/game/wolfVotes'] = null;
+    updates['rooms/'+roomCode+'/game/puppetUsedTurn'] = null;
     // Reset protection
     const players = room.players ? Object.values(room.players) : [];
     players.forEach(p=>{ updates['rooms/'+roomCode+'/players/'+p.id+'/protected']=false; });
@@ -1665,33 +1791,132 @@ async function applyEvent(ev){
   const room = await dbGet('rooms/'+roomCode);
   const players = room?.players ? Object.values(room.players) : [];
   const alive = players.filter(p=>p.alive);
+  const g = room?.game;
   if(!alive.length) return;
 
+  // ── Immunité Aléatoire ──────────────────────────────────────
   if(ev.name==='Immunité Aléatoire'){
     const t=alive[Math.floor(Math.random()*alive.length)];
     await dbUpdate('rooms/'+roomCode+'/players/'+t.id,{protected:true});
-    await pushLog(`🛡️ ${t.name} est immunisé pour ce tour.`,'chaos');
+    await pushLog(`🛡️ ${t.name} est protégé(e) par l'immunité aléatoire ce tour !`,'chaos');
   }
+
+  // ── Nouveau Maire ────────────────────────────────────────────
   if(ev.name==='Nouveau Maire'){
     const t=alive[Math.floor(Math.random()*alive.length)];
     const upd={};
     players.forEach(p=>{upd['rooms/'+roomCode+'/players/'+p.id+'/mayor']=false;});
     upd['rooms/'+roomCode+'/players/'+t.id+'/mayor']=true;
     await update(ref(db),upd);
-    await pushLog(`👑 ${t.name} devient le nouveau Maire !`,'chaos');
+    await pushLog(`👑 ${t.name} est désigné(e) nouveau Maire par le destin !`,'chaos');
   }
+
+  // ── Retour des Morts ─────────────────────────────────────────
+  // Mort revient pour un tour; on schedule sa re-mort au prochain changement de phase
   if(ev.name==='Retour des Morts'){
     const dead=players.filter(p=>!p.alive);
     if(dead.length){
       const r=dead[Math.floor(Math.random()*dead.length)];
       await dbUpdate('rooms/'+roomCode+'/players/'+r.id,{alive:true});
+      await dbUpdate('rooms/'+roomCode+'/game',{ghostPlayerId:r.id});
       await pushLog(`👻 ${r.name} revient d'entre les morts pour un tour !`,'chaos');
     }
   }
+
+  // ── Potion Retrouvée ─────────────────────────────────────────
   if(ev.name==='Potion Retrouvée'){
-    const g=room.game;
-    if(g?.witchLifeUsed){await dbUpdate('rooms/'+roomCode+'/game',{witchLifeUsed:false});}
-    else if(g?.witchDeathUsed){await dbUpdate('rooms/'+roomCode+'/game',{witchDeathUsed:false});}
+    if(g?.witchLifeUsed&&g?.witchDeathUsed){
+      // Both used — restore life potion
+      await dbUpdate('rooms/'+roomCode+'/game',{witchLifeUsed:false});
+      await pushLog(`🧪 La Sorcière retrouve sa potion de vie !`,'chaos');
+    } else if(g?.witchLifeUsed){
+      await dbUpdate('rooms/'+roomCode+'/game',{witchLifeUsed:false});
+      await pushLog(`🧪 La Sorcière retrouve sa potion de vie !`,'chaos');
+    } else if(g?.witchDeathUsed){
+      await dbUpdate('rooms/'+roomCode+'/game',{witchDeathUsed:false});
+      await pushLog(`🧪 La Sorcière retrouve sa potion de mort !`,'chaos');
+    } else {
+      await pushLog(`🧪 La Sorcière possède déjà toutes ses potions.`,'chaos');
+    }
+  }
+
+  // ── Double Vote ──────────────────────────────────────────────
+  // Stored as a flag; resolveVote reads it and multiplies all votes ×2
+  if(ev.name==='Double Vote'){
+    await dbUpdate('rooms/'+roomCode+'/game',{eventDoubleVote:true});
+    await pushLog(`🗳️ Ce tour, tous les votes comptent double !`,'chaos');
+  }
+
+  // ── Vote Inversé ─────────────────────────────────────────────
+  // The player with most votes is SAVED; second-most is eliminated
+  if(ev.name==='Vote Inversé'){
+    await dbUpdate('rooms/'+roomCode+'/game',{eventVoteInverse:true});
+    await pushLog(`🔃 Vote Inversé ! Le joueur avec le plus de votes sera sauvé.`,'chaos');
+  }
+
+  // ── Deux Morts Cette Nuit ────────────────────────────────────
+  // Wolves will kill TWO targets; stored as flag read in resolveNightKill
+  if(ev.name==='Deux Morts Cette Nuit'){
+    await dbUpdate('rooms/'+roomCode+'/game',{eventTwoDeaths:true});
+    await pushLog(`💀 Cette nuit sera doublement meurtrière — deux victimes !`,'chaos');
+  }
+
+  // ── Piège Explosif ───────────────────────────────────────────
+  // Pick a random alive player; if they get voted, 2 others die
+  if(ev.name==='Piège Explosif'){
+    const t=alive[Math.floor(Math.random()*alive.length)];
+    await dbUpdate('rooms/'+roomCode+'/game',{trapPlayer:t.id});
+    await pushLog(`💣 Un piège explosif est posé… (la cible ne sait pas qu'elle est piégée)`, 'chaos');
+  }
+
+  // ── Voyante Aveuglée ─────────────────────────────────────────
+  // Force seer to get wrong info; stored as flag used in _seer
+  if(ev.name==='Voyante Aveuglée'){
+    await dbUpdate('rooms/'+roomCode+'/game',{eventSeerBlinded:true});
+    await pushLog(`👁️ La Voyante est aveuglée — ses visions seront fausses cette nuit !`,'chaos');
+  }
+
+  // ── Duel Obligatoire ─────────────────────────────────────────
+  // Pick 2 random alive players; host triggers vote between them
+  if(ev.name==='Duel Obligatoire'){
+    if(alive.length>=2){
+      const shuffled=[...alive].sort(()=>Math.random()-.5);
+      const [pA,pB]=shuffled;
+      await dbUpdate('rooms/'+roomCode+'/game',{duelA:pA.id, duelB:pB.id, duelActive:true});
+      await pushLog(`⚔️ DUEL entre ${pA.name} et ${pB.name} ! Le village vote pour en éliminer un.`,'chaos');
+    }
+  }
+
+  // ── Brouillard ───────────────────────────────────────────────
+  // Disable chat for 60s — stored as flag with timestamp
+  if(ev.name==='Brouillard'){
+    const fogEnd = Date.now()+60000;
+    await dbUpdate('rooms/'+roomCode+'/game',{fogEnd});
+    await pushLog(`🌫️ Brouillard ! Le chat est désactivé pendant 60 secondes.`,'chaos');
+  }
+
+  // ── Silence ──────────────────────────────────────────────────
+  // Pick a random alive player; they cannot chat this turn
+  if(ev.name==='Silence'){
+    const t=alive[Math.floor(Math.random()*alive.length)];
+    await dbUpdate('rooms/'+roomCode+'/game',{silencedPlayer:t.id, silencedTurn:g?.turn||1});
+    await pushLog(`🤫 ${t.name} est réduit(e) au silence pour ce tour !`,'chaos');
+  }
+
+  // ── Débat Limité ─────────────────────────────────────────────
+  // Cut day phase duration to 60s
+  if(ev.name==='Débat Limité'){
+    const newEnd = Date.now()+60000;
+    await dbUpdate('rooms/'+roomCode+'/game',{phaseEndTime:newEnd});
+    await pushLog(`⏱️ Débat Limité ! Vous n'avez qu'une minute pour décider.`,'chaos');
+  }
+
+  // ── Discussions Interdites ───────────────────────────────────
+  // Cut day phase duration to 10s (immediate vote)
+  if(ev.name==='Discussions Interdites'){
+    const newEnd = Date.now()+10000;
+    await dbUpdate('rooms/'+roomCode+'/game',{phaseEndTime:newEnd, noDebate:true});
+    await pushLog(`🚫 Discussions Interdites ! Vote immédiat dans 10 secondes.`,'chaos');
   }
 }
 
@@ -1706,6 +1931,7 @@ async function killPlayer(playerId, source){
 
   await dbUpdate('rooms/'+roomCode+'/players/'+playerId,{alive:false});
   await pushLog(`💀 ${p.name} a été éliminé(e).`,'death');
+  if(audioEnabled) playDeathSound();
 
   const narr = source==='nuit'||source==='loups'
     ? {fire:'🌑',color:'#e07070',title:'La Nuit a Frappé',text:`Les ombres ont déchiré le silence. Ce matin, les villageois ont retrouvé ${p.name} — ${ALL_ROLES[p.role]?.emoji||''} ${p.role} — froid et immobile. Le givre recouvrait ses lèvres comme si la mort avait scellé ses secrets.`}
@@ -1953,16 +2179,85 @@ window._usurp = async function(id){
 };
 
 async function puppetModal(room){
-  const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
+  const g=room.game;
+  if(g?.puppetUsedTurn===(g?.turn||1)){
+    openModal('🧵 Marionnettiste','<p style="color:var(--smoke);font-style:italic;">Vous avez déjà utilisé votre pouvoir cette nuit.</p>');
+    return;
+  }
+  // Marionnettiste can only control non-loup players
+  const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id&&ALL_ROLES[p.role]?.camp!=='loup');
+  if(!players.length){
+    openModal('🧵 Marionnettiste','<p style="color:var(--smoke);font-style:italic;">Aucune cible disponible (les loups ne peuvent pas être contrôlés).</p>');
+    return;
+  }
   openModal('🧵 Marionnettiste — Contrôler',
-    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Ce joueur effectuera une action que vous choisissez à sa place.</p>`+
-    players.map(p=>`<button class="m-opt purple" onclick="window._puppet('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Choisissez un joueur à contrôler. Vous déciderez ensuite de son action.</p>`+
+    players.map(p=>`<button class="m-opt purple" onclick="window._puppetChoose('${p.id}');closeModal()">${p.avatar} ${esc(p.name)} <span style="font-size:.72rem;color:var(--smoke)">${ALL_ROLES[p.role]?.emoji||''} ${p.role}</span></button>`).join('')
   );
 }
-window._puppet = async function(id){
+window._puppetChoose = async function(victimId){
   const room=await dbGet('rooms/'+roomCode);
-  const p=room?.players?.[id];
-  // no log — secret
+  const victim=room?.players?.[victimId];
+  if(!victim) return;
+  // Offer available actions based on the victim's role
+  const role=victim.role;
+  const rd=ALL_ROLES[role];
+  const actionOpts = [];
+  // Generic actions depending on role
+  if(role==='Voyante') actionOpts.push({label:'🔮 Forcer une révélation aléatoire', action:'seer_random'});
+  if(role==='Sorcière' && !room.game?.witchDeathUsed) actionOpts.push({label:'☠️ Forcer la potion de mort', action:'witch_death_random'});
+  if(role==='Garde du Corps') actionOpts.push({label:'🛡️ Forcer une protection aléatoire', action:'guard_random'});
+  // Generic fallback
+  actionOpts.push({label:'🎲 Forcer à voter aléatoirement demain', action:'vote_random'});
+  openModal(`🧵 Action pour ${esc(victim.name)}`,
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Choisissez l'action que vous forcez sur ${esc(victim.name)}.</p>`+
+    actionOpts.map(a=>`<button class="m-opt purple" onclick="window._puppet('${victimId}','${a.action}');closeModal()">${a.label}</button>`).join('')
+  );
+};
+window._puppet = async function(victimId, action){
+  const room=await dbGet('rooms/'+roomCode);
+  const g=room?.game;
+  const victim=room?.players?.[victimId];
+  if(!victim||!g) return;
+  await dbUpdate('rooms/'+roomCode+'/game',{
+    puppetVictim:victimId,
+    puppetAction:action,
+    puppetUsedTurn:g.turn||1
+  });
+  // Apply immediately based on action
+  if(action==='seer_random'){
+    const others=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==victimId);
+    // Just force seerUsed so victim can't use it themselves
+    await dbUpdate('rooms/'+roomCode+'/game',{seerUsed:true});
+    await pushLog(`💀 Les fils du destin ont guidé une main inconnue cette nuit…`,'night');
+  } else if(action==='witch_death_random'){
+    const others=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==victimId);
+    if(others.length){
+      const t=others[Math.floor(Math.random()*others.length)];
+      await dbUpdate('rooms/'+roomCode+'/players/'+t.id,{alive:false});
+      await dbUpdate('rooms/'+roomCode+'/game',{witchDeathUsed:true});
+      await pushLog(`💀 Une potion mystérieuse a tué ${t.name} cette nuit…`,'death');
+    }
+  } else if(action==='guard_random'){
+    const others=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==victimId);
+    if(others.length){
+      const t=others[Math.floor(Math.random()*others.length)];
+      await dbUpdate('rooms/'+roomCode+'/players/'+t.id,{protected:true});
+    }
+  } else if(action==='vote_random'){
+    // Store forced vote for victim — applied in _vote
+    const others=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==victimId);
+    if(others.length){
+      const t=others[Math.floor(Math.random()*others.length)];
+      await dbUpdate('rooms/'+roomCode+'/game',{
+        hypnoVictim:victimId,
+        hypnoForcedTarget:t.id,
+        hypnoUsedTurn:g.turn||1,
+        hypnoCooldownLength:1
+      });
+    }
+  }
+  // no public log — secret
 };
 
 async function advocateModal(room){
@@ -2004,17 +2299,21 @@ window._seer = async function(id){
   if(!p) return;
   // Mark seer as used this night
   await dbUpdate('rooms/'+roomCode+'/game',{seerUsed:true});
-  // Check if illusionist has faked this player
-  const illusionTarget = room?.game?.illusionTarget;
+  // Check Voyante Aveuglée event: force wrong info
   let displayRole = p.role;
   let faked = false;
-  if(illusionTarget === id){
+  const eventBlinded = room?.game?.eventSeerBlinded;
+  const illusionTarget = room?.game?.illusionTarget;
+
+  if(eventBlinded || illusionTarget === id){
     const allRoleNames = Object.keys(ALL_ROLES);
     const myRoleData = ALL_ROLES[p.role];
-    const otherRoles = allRoleNames.filter(r=>ALL_ROLES[r].camp !== myRoleData?.camp);
+    const otherRoles = allRoleNames.filter(r=>r!==p.role&&ALL_ROLES[r].camp !== myRoleData?.camp);
     displayRole = otherRoles[Math.floor(Math.random()*otherRoles.length)] || p.role;
     faked = true;
-    await dbUpdate('rooms/'+roomCode+'/game',{illusionTarget:null, illusionUsedThisNight:false});
+    if(illusionTarget === id){
+      await dbUpdate('rooms/'+roomCode+'/game',{illusionTarget:null, illusionUsedThisNight:false});
+    }
   }
   const rd=ALL_ROLES[displayRole];
   openModal('🔮 Révélation',`<div style="text-align:center;padding:18px;">
@@ -2040,9 +2339,17 @@ async function voteModal(room){
     </div>`);
     return;
   }
-  const players = Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
-  openModal('⚖️ Voter pour éliminer',
-    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Vote irrévocable — le joueur avec le plus de voix sera éliminé.</p>`+
+  let players = Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
+  let title = '⚖️ Voter pour éliminer';
+  let hint = 'Vote irrévocable — le joueur avec le plus de voix sera éliminé.';
+  // Duel: restrict to duelA/duelB
+  if(g?.duelActive && g?.duelA && g?.duelB){
+    players = players.filter(p=>p.id===g.duelA||p.id===g.duelB);
+    title = '⚔️ Duel Obligatoire';
+    hint = 'Vous devez voter pour l\'un des deux duellistes uniquement !';
+  }
+  openModal(title,
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">${hint}</p>`+
     players.map(p=>`<button class="m-opt red" onclick="window._vote('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
   );
 }
@@ -2093,32 +2400,76 @@ window._vote = async function(targetId){
 async function resolveVote(room){
   const votes = room.game?.dayVotes || {};
   const players = room.players || {};
+  const g = room.game || {};
 
-  // Tally votes (mayor = 2)
+  // Tally votes (mayor = 2, double vote event = ×2 for everyone)
   const tally = {};
+  const doubleVote = g.eventDoubleVote || false;
   Object.entries(votes).forEach(([vid, tid])=>{
-    const w = players[vid]?.mayor ? 2 : 1;
+    let w = players[vid]?.mayor ? 2 : 1;
+    if(doubleVote) w *= 2;
     tally[tid] = (tally[tid]||0) + w;
   });
 
-  if(!Object.keys(tally).length) { await switchPhase('night'); return; }
+  // Duel Obligatoire: restrict votes to duelA/duelB only
+  const duelActive = g.duelActive;
+  const duelTally = {};
+  if(duelActive && g.duelA && g.duelB){
+    [g.duelA, g.duelB].forEach(id=>{ duelTally[id] = tally[id]||0; });
+  }
+  const activeTally = duelActive ? duelTally : tally;
 
-  const maxVotes = Math.max(...Object.values(tally));
-  const top = Object.keys(tally).filter(id=>tally[id]===maxVotes);
-  // Tiebreak: random
-  const eliminated = top[Math.floor(Math.random()*top.length)];
-  const p = players[eliminated];
+  if(!Object.keys(activeTally).length) { await switchPhase('night'); return; }
+
+  const allVals = Object.values(activeTally);
+  const maxVotes = Math.max(...allVals);
+  const minVotes = Math.min(...allVals);
+
+  // Vote Inversé: player with MOST votes is SAVED, player with LEAST is eliminated
+  const voteInverse = g.eventVoteInverse || false;
+  let eliminatedId;
+  if(voteInverse){
+    const saved = Object.keys(activeTally).filter(id=>activeTally[id]===maxVotes);
+    const savedName = players[saved[0]]?.name||'?';
+    await pushLog(`🔃 Vote Inversé : ${savedName} (le plus voté) est sauvé(e) !`,'chaos');
+    const losers = Object.keys(activeTally).filter(id=>activeTally[id]===minVotes);
+    eliminatedId = losers[Math.floor(Math.random()*losers.length)];
+  } else {
+    const top = Object.keys(activeTally).filter(id=>activeTally[id]===maxVotes);
+    eliminatedId = top[Math.floor(Math.random()*top.length)];
+  }
+  const p = players[eliminatedId];
 
   // Results log
-  const summary = Object.entries(tally)
+  const summary = Object.entries(activeTally)
     .sort((a,b)=>b[1]-a[1])
     .map(([id,v])=>`${players[id]?.name||'?'} (${v})`)
     .join(', ');
   await pushLog(`📊 Résultats : ${summary}`, 'day');
   await pushLog(`⚖️ ${p?.name} est éliminé(e) par le vote du village.`, 'death');
 
-  // Clear votes
-  await dbUpdate('rooms/'+roomCode+'/game', {dayVotes: null});
+  // Clear votes + event flags
+  await dbUpdate('rooms/'+roomCode+'/game', {
+    dayVotes: null,
+    eventDoubleVote: false,
+    eventVoteInverse: false,
+    duelActive: false, duelA: null, duelB: null,
+    noDebate: false
+  });
+
+  // Piège Explosif: if eliminated player is the trapped one, kill 2 more random
+  if(g.trapPlayer && g.trapPlayer === eliminatedId){
+    await pushLog(`💣 BOOM ! ${p?.name} était piégé(e) — l'explosion tue 2 autres joueurs !`,'chaos');
+    pushNarr({fire:'💣',color:'#ff6030',title:'L\'Explosion !',
+      text:`Le piège explosif se déclenche ! ${p?.name} explose, emportant d'autres innocents dans la mort.`});
+    // Kill 2 random others
+    const others = Object.values(players).filter(q=>q.alive&&q.id!==eliminatedId);
+    const shuffled=[...others].sort(()=>Math.random()-.5).slice(0,2);
+    for(const victim of shuffled){
+      await killPlayer(victim.id,'explosion');
+    }
+    await dbUpdate('rooms/'+roomCode+'/game',{trapPlayer:null});
+  }
 
   // Kill or avocat protection
   if(p?.protected){
@@ -2128,7 +2479,7 @@ async function resolveVote(room){
   } else {
     pushNarr({fire:'⚖️',color:'#e0c070',title:'La Justice du Village',
       text:`Après les débats et les accusations, le village a tranché. ${p?.name} — les yeux cherchant encore un ami dans la foule — est conduit vers sa dernière demeure. Avait-il tort de vous faire confiance ?`});
-    await killPlayer(eliminated, 'vote');
+    await killPlayer(eliminatedId, 'vote');
   }
 
   // Transition to night
@@ -2297,9 +2648,29 @@ window.sendChat = async function(){
   const inp=document.getElementById('chat-in');
   const text=inp.value.trim();
   if(!text) return;
+  const room=await dbGet('rooms/'+roomCode);
+  const g=room?.game;
+  // Brouillard: block chat until fogEnd
+  if(g?.fogEnd && Date.now()<g.fogEnd){
+    const secs=Math.ceil((g.fogEnd-Date.now())/1000);
+    inp.value='';
+    openModal('🌫️ Brouillard',`<p style="color:var(--smoke);font-style:italic;">Vous ne pouvez pas parler ! Le brouillard lève dans ${secs} seconde(s).</p>`);
+    return;
+  }
+  // Silence: block this specific player
+  if(g?.silencedPlayer===me.id && g?.silencedTurn===(g?.turn||1)){
+    inp.value='';
+    openModal('🤫 Silence',`<p style="color:var(--smoke);font-style:italic;">Vous êtes réduit(e) au silence ce tour ! Impossible de parler.</p>`);
+    return;
+  }
+  // Discussions Interdites
+  if(g?.noDebate && g?.phase==='day'){
+    inp.value='';
+    openModal('🚫 Discussions Interdites',`<p style="color:var(--smoke);font-style:italic;">Les discussions sont interdites ce tour ! Vote immédiat.</p>`);
+    return;
+  }
   inp.value='';
   const ts=Date.now();
-  const room=await dbGet('rooms/'+roomCode);
   const myP=room?.players?.[me.id];
   await dbSet('rooms/'+roomCode+'/chat/'+ts+'_'+me.id.substr(0,5),{
     id:me.id, name:me.name, avatar:me.avatar, text, ts, dead:myP?!myP.alive:false
@@ -2390,6 +2761,10 @@ async function checkVictory(){
 
 function showVictory(v){
   showScreen('victory');
+  // Play appropriate victory sound
+  if(v.type==='wolf'||v.type==='white') playWolfVictorySound();
+  else if(v.type==='village'||v.type==='chaos') playVillageVictorySound();
+  else if(v.type==='lovers') playLoversVictorySound();
   const icons={wolf:'🐺',village:'🌾',lovers:'❤️',white:'🤍',chaos:'💀'};
   document.getElementById('v-icon').textContent=icons[v.type]||'🏆';
   document.getElementById('v-title').textContent=v.title;
