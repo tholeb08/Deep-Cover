@@ -764,17 +764,10 @@ window.launchGame = async function() {
   const updatedRoom = await dbGet('rooms/'+roomCode);
   const updatedPlayers = Object.values(updatedRoom.players);
 
-  // Cupidon
+  // Cupidon — don't auto-link; mark as pending so Cupidon player chooses
   let loversA=null, loversB=null;
   const cupidon = updatedPlayers.find(p=>p.role==='Cupidon');
-  if(cupidon && updatedPlayers.length>=3){
-    const others = updatedPlayers.filter(p=>p.id!==cupidon.id).sort(()=>Math.random()-.5);
-    loversA = others[0].id; loversB = others[1].id;
-    const loveUpdates = {};
-    loveUpdates['rooms/'+roomCode+'/players/'+loversA+'/lovers'] = true;
-    loveUpdates['rooms/'+roomCode+'/players/'+loversB+'/lovers'] = true;
-    await update(ref(db), loveUpdates);
-  }
+  // loversA/loversB will be set by Cupidon's action at start of night 1
 
   // Mayor
   const mayorP = updatedPlayers.find(p=>p.role==='Maire');
@@ -787,7 +780,7 @@ window.launchGame = async function() {
     witchLifeUsed:false, witchDeathUsed:false, godUsed:false, chronoUsed:false, infectUsed:false,
     seerUsed:false, illusionUsedThisNight:false,
     fleaUsed:false, fleaTarget:null, fleaTurn:0, fleaInfected:false,
-    hunterUsed:false,
+    hunterUsed:false, cupidonDone:false,
     loversA, loversB,
     currentEvent:null, victory:null,
     lastPhaseChange: Date.now(),
@@ -798,10 +791,6 @@ window.launchGame = async function() {
   });
 
   await pushLog(`🌙 La partie commence avec ${updatedPlayers.length} joueurs !`, 'system');
-  if(loversA && loversB){
-    const a=updatedPlayers.find(p=>p.id===loversA), b=updatedPlayers.find(p=>p.id===loversB);
-    if(a&&b) await pushLog(`💘 Cupidon a lié ${a.name} et ${b.name} en amoureux.`, 'info');
-  }
   await maybeEvent(game);
 };
 
@@ -1006,12 +995,15 @@ function renderActions(room) {
 
   if(g.phase==='night'){
     // Wolf roles
-    if(['Loup-Garou','Loup Blanc','Loup Enragé','Loup aux Puces'].includes(role))
-      add('🐺 Voter une cible (loups)','red',()=>wolfVoteModal(room));
+    if(['Loup-Garou','Loup Blanc','Loup Enragé','Loup aux Puces'].includes(role)){
+      if(!g.wolfVotes?.[me.id]) add('🐺 Désigner la victime','red',()=>wolfVoteModal(room));
+      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🐺 Cible désignée — attendez le résultat'}));
+    }
     if(role==='Loup Enragé' && (g.turn % 3 === 0))
       add('🔥 Nuit enragée — tuer 2 cibles','red',()=>wolfRageModal(room));
     if(role==='Loup Infectieux'){
-      add('🐺 Voter une cible (loups)','red',()=>wolfVoteModal(room));
+      if(!g.wolfVotes?.[me.id]) add('🐺 Désigner la victime','red',()=>wolfVoteModal(room));
+      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🐺 Cible désignée'}));
       if(!g.infectUsed) add('🦠 Infecter (au lieu de tuer)','red',()=>infectModal(room));
       else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🦠 Infection déjà utilisée'}));
     }
@@ -1036,6 +1028,10 @@ function renderActions(room) {
       else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'⏳ Rembobinage déjà utilisé'}));
     }
     if(role==='Nécromancien')                  add('💀 Consulter les morts','purple',()=>necroModal(room));
+    if(role==='Cupidon'){
+      if(!g.cupidonDone) add('💘 Lier deux amoureux','green',()=>cupidonModal(room));
+      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'💘 Amoureux déjà liés'}));
+    }
     // Neutral roles
     if(role==='Illusionniste'){
       if(!g.illusionUsedThisNight) add('🪄 Fausser la Voyante','purple',()=>illusionModal(room));
@@ -1139,6 +1135,23 @@ function startTimerLoop(){
 }
 
 // ================================================================
+// NIGHT KILL RESOLUTION — called when switching night → day
+// ================================================================
+async function resolveNightKill(g){
+  const wolfVotes = g?.wolfVotes || {};
+  if(!Object.keys(wolfVotes).length) return; // No wolves voted
+
+  // Tally wolf votes
+  const tally = {};
+  Object.values(wolfVotes).forEach(tid=>{ tally[tid]=(tally[tid]||0)+1; });
+  const max = Math.max(...Object.values(tally));
+  const top = Object.keys(tally).filter(id=>tally[id]===max);
+  const targetId = top[Math.floor(Math.random()*top.length)];
+
+  await killPlayer(targetId, 'nuit');
+}
+
+// ================================================================
 // PHASE SWITCH
 // ================================================================
 async function switchPhase(newPhase){
@@ -1157,12 +1170,14 @@ async function switchPhase(newPhase){
     // Reset per-night flags
     updates['rooms/'+roomCode+'/game/seerUsed'] = false;
     updates['rooms/'+roomCode+'/game/illusionUsedThisNight'] = false;
+    updates['rooms/'+roomCode+'/game/wolfVotes'] = null;
     // Reset protection
     const players = room.players ? Object.values(room.players) : [];
     players.forEach(p=>{ updates['rooms/'+roomCode+'/players/'+p.id+'/protected']=false; });
   } else {
-    // Reset votes for new day
+    // Reset day votes for new day
     updates['rooms/'+roomCode+'/game/dayVotes'] = null;
+    updates['rooms/'+roomCode+'/game/voteResolved'] = false;
   }
   await update(ref(db), updates);
   const turn = newPhase==='night' ? (g.turn||1)+1 : g.turn;
@@ -1170,6 +1185,8 @@ async function switchPhase(newPhase){
     await pushLog(`🌑 — Nuit ${turn} — Les loups se réveillent.`,'night');
     pushNarr({fire:'🌑',color:'#8070b0',title:`Nuit ${turn}`,text:`Le soleil s'est couché. Les volets se ferment. Dans l'obscurité totale, quelque chose se déplace lentement entre les maisons. Quelqu'un prépare son crime.`});
   } else {
+    // Resolve wolf kill from last night BEFORE showing day
+    await resolveNightKill(g);
     await pushLog(`☀️ — Jour ${g.turn} — Le village s'éveille.`,'day');
     pushNarr({fire:'☀️',color:'#c8a050',title:`Jour ${g.turn}`,text:`L'aube rougeoyante réveille le village, mais l'air reste lourd de mensonges. Les regards se croisent, fuyants ou accusateurs. Qui parmi nous ment ce matin ?`});
   }
@@ -1587,8 +1604,8 @@ window._revive = async function(id){
 };
 window._protect = async function(id){
   await dbUpdate('rooms/'+roomCode+'/players/'+id,{protected:true});
-  const r=await dbGet('rooms/'+roomCode+'/players/'+id);
-  // no log — secret
+  await dbUpdate('rooms/'+roomCode+'/game',{lastProtected:id});
+  // No log — secret action
 };
 
 // ================================================================
@@ -1838,12 +1855,12 @@ async function voteModal(room){
 window._vote = async function(targetId){
   const room = await dbGet('rooms/'+roomCode);
   if(!room?.game || room.game.phase !== 'day') return;
+  if(room.game.voteResolved) return; // Already resolved
   const voter = room.players?.[me.id];
   const target = room.players?.[targetId];
   if(!voter?.alive || !target?.alive) return;
   if(room.game.dayVotes?.[me.id]) return; // already voted
 
-  const weight = voter.mayor ? 2 : 1;
   const voteUpdate = {};
   voteUpdate[`rooms/${roomCode}/game/dayVotes/${me.id}`] = targetId;
   await update(ref(db), voteUpdate);
@@ -1851,16 +1868,18 @@ window._vote = async function(targetId){
 
   // Check if all alive players have now voted
   const freshRoom = await dbGet('rooms/'+roomCode);
+  if(freshRoom.game?.voteResolved) return; // Another client already resolved
   const alivePlayers = Object.values(freshRoom.players||{}).filter(p=>p.alive);
   const votes = freshRoom.game?.dayVotes || {};
   const votedCount = alivePlayers.filter(p=>votes[p.id]).length;
 
   if(votedCount >= alivePlayers.length){
-    // Only coordinator resolves to avoid duplicate processing
-    const coordinator = alivePlayers.sort((a,b)=>a.id.localeCompare(b.id))[0];
-    if(coordinator?.id === me.id){
-      await resolveVote(freshRoom);
-    }
+    // Claim resolution with atomic guard
+    const claimUpd = {};
+    claimUpd[`rooms/${roomCode}/game/voteResolved`] = true;
+    await update(ref(db), claimUpd);
+    // Re-read to confirm we're the one who set it (simple approach: just proceed)
+    await resolveVote(freshRoom);
   }
 };
 
@@ -1911,27 +1930,46 @@ async function resolveVote(room){
 
 async function wolfVoteModal(room){
   const players = Object.values(room.players||{}).filter(p=>p.alive&&ALL_ROLES[p.role]?.camp!=='loup');
-  openModal('🐺 Suggérer une cible (loups)',
-    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Votez en privé. Coordinatez-vous dans le chat des loups !</p>`+
-    players.map(p=>`<button class="m-opt red" onclick="window._wolfSuggest('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+  const g = room.game;
+  const myWolfVote = g?.wolfVotes?.[me.id];
+  if(myWolfVote){
+    const t = room.players?.[myWolfVote];
+    openModal('🐺 Cible déjà désignée',`<div style="text-align:center;padding:12px;color:var(--smoke);font-style:italic;">Vous avez désigné <strong style="color:#e07070">${t?.name||'?'}</strong> comme cible.</div>`);
+    return;
+  }
+  openModal('🐺 Désigner la victime de la nuit',
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">La cible avec le plus de votes sera tuée à l'aube.</p>`+
+    players.map(p=>`<button class="m-opt red" onclick="window._wolfVote('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
   );
 }
-window._wolfSuggest = async function(id){
+window._wolfVote = async function(targetId){
   const room = await dbGet('rooms/'+roomCode);
-  const target = room?.players?.[id];
-  const me_p = room?.players?.[me.id];
-  if(target && me_p){
-    await dbSet('rooms/'+roomCode+'/wolfchat/'+Date.now()+'_v_'+me.id.substr(0,4),{
-      id:me.id, name:me.name, avatar:me.avatar,
-      text:`🗳️ Je propose ${target.avatar} ${target.name} comme cible cette nuit.`, ts:Date.now()
-    });
-  }
+  if(!room?.game || room.game.phase !== 'night') return;
+  const voter = room.players?.[me.id];
+  const target = room.players?.[targetId];
+  if(!voter?.alive || !target?.alive) return;
+  if(room.game.wolfVotes?.[me.id]) return;
+  const upd = {};
+  upd[`rooms/${roomCode}/game/wolfVotes/${me.id}`] = targetId;
+  await update(ref(db), upd);
+  // Also post in wolf chat so pack sees
+  await dbSet('rooms/'+roomCode+'/wolfchat/'+Date.now()+'_v_'+me.id.substr(0,4),{
+    id:me.id, name:me.name, avatar:me.avatar,
+    text:`🗳️ Je vote pour tuer ${target.avatar} ${target.name}.`, ts:Date.now()
+  });
 };
 
 async function protectModal(room){
-  const players=Object.values(room.players||{}).filter(p=>p.alive);
+  const lastProtected = room.game?.lastProtected;
+  const players = Object.values(room.players||{}).filter(p=>p.alive && p.id!==lastProtected);
+  if(!players.length){
+    openModal('🛡️','<p style="color:var(--smoke);font-style:italic;">Vous ne pouvez pas protéger la même personne deux nuits consécutives.</p>');
+    return;
+  }
+  const lastP = lastProtected ? Object.values(room.players||{}).find(p=>p.id===lastProtected) : null;
   openModal('🛡️ Protéger un joueur',
-    players.map(p=>`<button class="m-opt" onclick="window._protect('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+    (lastP?`<p style="font-size:.78rem;color:var(--smoke);margin-bottom:8px;font-style:italic;">⚠️ Vous ne pouvez pas protéger ${esc(lastP.name)} deux nuits d'affilée.</p>`:'') +
+    players.map(p=>`<button class="m-opt green" onclick="window._protect('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
   );
 }
 
@@ -2000,6 +2038,47 @@ async function necroModal(room){
     </div>
   </div>`);
 }
+
+// Cupidon — 2-step: pick lover A then lover B
+let cupidonFirstChoice = null;
+async function cupidonModal(room){
+  const players = Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
+  if(cupidonFirstChoice){
+    const first = room.players?.[cupidonFirstChoice];
+    openModal('💘 Cupidon — 2ème Amoureux',
+      `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Premier amoureux : <strong style="color:var(--moon)">${first?.name||'?'}</strong><br>Choisissez maintenant le second !</p>`+
+      players.filter(p=>p.id!==cupidonFirstChoice)
+        .map(p=>`<button class="m-opt green" onclick="window._cupidonLink('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+    );
+  } else {
+    openModal('💘 Cupidon — 1er Amoureux',
+      `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Choisissez le premier amoureux. Vous choisirez ensuite le second.</p>`+
+      players.map(p=>`<button class="m-opt green" onclick="window._cupidonFirst('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+    );
+  }
+}
+window._cupidonFirst = function(id){
+  cupidonFirstChoice = id;
+  // Reopen modal for second choice
+  dbGet('rooms/'+roomCode).then(room=>cupidonModal(room));
+};
+window._cupidonLink = async function(secondId){
+  const firstId = cupidonFirstChoice;
+  cupidonFirstChoice = null;
+  const room = await dbGet('rooms/'+roomCode);
+  const a = room?.players?.[firstId];
+  const b = room?.players?.[secondId];
+  if(!a||!b) return;
+  const upd = {};
+  upd['rooms/'+roomCode+'/players/'+firstId+'/lovers'] = true;
+  upd['rooms/'+roomCode+'/players/'+secondId+'/lovers'] = true;
+  upd['rooms/'+roomCode+'/game/loversA'] = firstId;
+  upd['rooms/'+roomCode+'/game/loversB'] = secondId;
+  upd['rooms/'+roomCode+'/game/cupidonDone'] = true;
+  await update(ref(db), upd);
+  pushNarr({fire:'💘',color:'#f48fb1',title:'Les Amoureux sont Liés',
+    text:`Dans le secret de la nuit, Cupidon a tendu son arc. ${a.name} et ${b.name} sont désormais liés par un fil invisible. Si l'un meurt, l'autre suivra. Pour le meilleur et pour le pire.`});
+};
 
 // ================================================================
 // CHAT
