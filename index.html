@@ -458,6 +458,137 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getDatabase, ref, set, get, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
 // ================================================================
+// 🔊 SOUND ENGINE (Web Audio API — no external files)
+// ================================================================
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+let ambientSource = null;
+let ambientGain = null;
+
+function getAudioCtx(){
+  if(!audioCtx) audioCtx = new AudioCtx();
+  // Resume on user gesture
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+// Generic synth note
+function playTone(freq, type, dur, vol, delay=0, ctx=null){
+  ctx = ctx || getAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, ctx.currentTime+delay);
+  gain.gain.setValueAtTime(0, ctx.currentTime+delay);
+  gain.gain.linearRampToValueAtTime(vol, ctx.currentTime+delay+0.02);
+  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+delay+dur);
+  osc.start(ctx.currentTime+delay);
+  osc.stop(ctx.currentTime+delay+dur+0.05);
+}
+
+// Ambient drone for welcome/lobby screen (looping low hum)
+function startAmbient(){
+  stopAmbient();
+  const ctx = getAudioCtx();
+  ambientSource = ctx.createOscillator();
+  ambientGain = ctx.createGain();
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass'; filter.frequency.value = 300;
+  ambientSource.type = 'sawtooth';
+  ambientSource.frequency.setValueAtTime(55, ctx.currentTime);
+  // Slow wobble
+  const lfo = ctx.createOscillator();
+  const lfoGain = ctx.createGain();
+  lfo.frequency.value = 0.12;
+  lfoGain.gain.value = 3;
+  lfo.connect(lfoGain); lfoGain.connect(ambientSource.frequency);
+  ambientGain.gain.value = 0.04;
+  ambientSource.connect(filter); filter.connect(ambientGain); ambientGain.connect(ctx.destination);
+  ambientSource.start();
+  lfo.start();
+  // Occasional dark bell pings
+  function schedulePing(){
+    const delay = 4 + Math.random()*8;
+    const pingFreqs = [220, 185, 165, 246];
+    const f = pingFreqs[Math.floor(Math.random()*pingFreqs.length)];
+    playTone(f, 'sine', 3.5, 0.06, delay, ctx);
+    playTone(f*2, 'sine', 2, 0.02, delay+0.01, ctx);
+    pingTimer = setTimeout(schedulePing, delay*1000);
+  }
+  schedulePing();
+}
+let pingTimer = null;
+function stopAmbient(){
+  if(ambientSource){try{ambientSource.stop();}catch(e){} ambientSource=null;}
+  if(pingTimer){clearTimeout(pingTimer); pingTimer=null;}
+}
+
+// 🌙 Sound: game launches (dramatic reveal)
+function playGameStart(){
+  stopAmbient();
+  const ctx = getAudioCtx();
+  // Low rumble sweep
+  const sweep = ctx.createOscillator();
+  const sweepGain = ctx.createGain();
+  sweep.connect(sweepGain); sweepGain.connect(ctx.destination);
+  sweep.type = 'sawtooth';
+  sweep.frequency.setValueAtTime(60, ctx.currentTime);
+  sweep.frequency.linearRampToValueAtTime(30, ctx.currentTime+2);
+  sweepGain.gain.setValueAtTime(0.08, ctx.currentTime);
+  sweepGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+2.5);
+  sweep.start(ctx.currentTime); sweep.stop(ctx.currentTime+2.6);
+  // Choir-like chords
+  const chords = [130.81, 164.81, 196, 246.94];
+  chords.forEach((f,i) => playTone(f, 'sine', 2.5, 0.05, 0.3+i*0.12, ctx));
+  // Wolf howl shimmer
+  [800, 600, 450, 300].forEach((f,i) => playTone(f, 'triangle', 1.2, 0.04, 1.2+i*0.15, ctx));
+  playTone(220, 'sine', 2, 0.07, 1.8, ctx);
+}
+
+// 🌀 Sound: event triggered (eerie, chaotic)
+function playEventSound(){
+  const ctx = getAudioCtx();
+  // Glitchy dissonant hit
+  const dissonant = [311, 370, 415, 466];
+  dissonant.forEach((f,i) => playTone(f, 'square', 0.8, 0.04, i*0.04, ctx));
+  // Low thud
+  const noise = ctx.createOscillator();
+  const noiseGain = ctx.createGain();
+  noise.connect(noiseGain); noiseGain.connect(ctx.destination);
+  noise.type = 'sawtooth';
+  noise.frequency.setValueAtTime(80, ctx.currentTime);
+  noise.frequency.exponentialRampToValueAtTime(20, ctx.currentTime+0.5);
+  noiseGain.gain.setValueAtTime(0.15, ctx.currentTime);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+0.6);
+  noise.start(ctx.currentTime); noise.stop(ctx.currentTime+0.7);
+  // Shimmer tail
+  [523, 622, 740].forEach((f,i) => playTone(f, 'sine', 1.5, 0.03, 0.2+i*0.1, ctx));
+}
+
+// Enable audio on first interaction
+let audioEnabled = false;
+function enableAudio(){
+  if(audioEnabled) return;
+  audioEnabled = true;
+  getAudioCtx();
+  startAmbient();
+}
+document.addEventListener('click', enableAudio, {once:true});
+document.addEventListener('keydown', enableAudio, {once:true});
+
+// Override showScreen to manage ambient
+const _origShowScreen = window.showScreen;
+window.showScreen = function(name){
+  _origShowScreen(name);
+  if(name==='welcome'||name==='lobby'||name==='create'||name==='join'){
+    if(audioEnabled && !ambientSource) startAmbient();
+  } else if(name==='game'){
+    stopAmbient();
+  }
+};
+
+// ================================================================
 // 🔥 REMPLACEZ LES VALEURS CI-DESSOUS PAR VOTRE CONFIG FIREBASE
 // ================================================================
 const FIREBASE_CONFIG = {
@@ -507,7 +638,6 @@ const ALL_EVENTS = [
   {name:'Deux Morts Cette Nuit', icon:'💀',desc:'La nuit devient doublement meurtrière.'},
   {name:'Immunité Aléatoire',    icon:'🛡️',desc:'Un joueur devient intouchable pour un tour.'},
   {name:'Retour des Morts',      icon:'👻',desc:'Un joueur éliminé revient pour un tour.'},
-  {name:'Nuit Éternelle',        icon:'🌑',desc:'Deux phases de nuit consécutives.'},
   {name:'Nouveau Maire',         icon:'👑',desc:'Un maire est désigné aléatoirement.'},
   {name:'Piège Explosif',        icon:'💣',desc:'Si le joueur piégé est voté, deux autres meurent.'},
   {name:'Voyante Aveuglée',      icon:'👁️',desc:'La Voyante reçoit une information fausse.'},
@@ -694,6 +824,8 @@ window.joinGame = async function() {
 // LOBBY
 // ================================================================
 function enterLobby() {
+  loversNarrShown = false;
+  chatRendered=0; wolfChatRendered=0; lastSeenLogLen=0; lastSeenNarrLen=0; narrQueue=[]; narrActive=false; shownDawnTurns=new Set();
   showScreen('lobby');
   document.getElementById('lobby-code').textContent = roomCode;
   if(isHost){
@@ -791,6 +923,7 @@ window.launchGame = async function() {
   });
 
   await pushLog(`🌙 La partie commence avec ${updatedPlayers.length} joueurs !`, 'system');
+  if(audioEnabled) playGameStart();
   await maybeEvent(game);
 };
 
@@ -822,6 +955,7 @@ function onRoomUpdate(room) {
     checkNewLogNarr(room);
     checkNewNarr(room);
     checkDawnWhisper(room);
+    checkLoversNarr(room);
   }
 
   if(room.status==='ended' && room.game?.victory){
@@ -1216,6 +1350,7 @@ async function maybeEvent(g){
     const ev = ALL_EVENTS[Math.floor(Math.random()*ALL_EVENTS.length)];
     await dbUpdate('rooms/'+roomCode+'/game',{currentEvent:ev});
     await pushLog(`🌀 ÉVÉNEMENT : ${ev.name} — ${ev.desc}`,'chaos');
+    if(audioEnabled) playEventSound();
     pushNarr({fire:ev.icon,color:'#c0a0ff',title:ev.name,text:ev.desc+' Un frisson parcourt le village. Personne ne sait encore quelles conséquences cela aura vraiment…'});
     await applyEvent(ev);
   } else {
@@ -1344,6 +1479,28 @@ function checkDawnWhisper(room){
     title: `Jour ${w.turn} — Ce que vous ressentez`,
     text: w.text
   });
+}
+
+// Check if we need to show a private lovers narr (only for lovers and Cupidon)
+let loversNarrShown = false;
+function checkLoversNarr(room){
+  if(loversNarrShown) return;
+  const g = room.game;
+  if(!g?.loversNarrPending) return;
+  const myP = room.players?.[me.id];
+  if(!myP) return;
+  const isLovers = myP.lovers;
+  const isCupidon = myP.role === 'Cupidon';
+  if(!isLovers && !isCupidon) return;
+  loversNarrShown = true;
+  const a = room.players?.[g.loversA];
+  const b = room.players?.[g.loversB];
+  if(!a||!b) return;
+  if(isLovers){
+    const partner = me.id === g.loversA ? b : a;
+    queueNarr({fire:'💘',color:'#f48fb1',title:'Vous êtes Amoureux(se) !',
+      text:`Une force invisible vous lie à ${partner.name}. Si l'un de vous meurt, l'autre suivra. Protégez-vous mutuellement… ou gagnez ensemble.`});
+  }
 }
 
 async function checkFleaInfection(room){
@@ -2126,8 +2283,11 @@ window._cupidonLink = async function(secondId){
   upd['rooms/'+roomCode+'/game/loversB'] = secondId;
   upd['rooms/'+roomCode+'/game/cupidonDone'] = true;
   await update(ref(db), upd);
-  pushNarr({fire:'💘',color:'#f48fb1',title:'Les Amoureux sont Liés',
-    text:`Dans le secret de la nuit, Cupidon a tendu son arc. ${a.name} et ${b.name} sont désormais liés par un fil invisible. Si l'un meurt, l'autre suivra. Pour le meilleur et pour le pire.`});
+  // Store lover IDs so each player can see their own private narr
+  await dbUpdate('rooms/'+roomCode+'/game', {loversNarrPending: true});
+  // Cupidon sees who they linked
+  queueNarr({fire:'💘',color:'#f48fb1',title:'Amoureux Liés !',
+    text:`Dans le secret de la nuit, vous avez tendu votre arc. ${a.name} et ${b.name} sont désormais liés par un fil invisible. Si l'un meurt, l'autre suivra.`});
 };
 
 // ================================================================
@@ -2247,7 +2407,7 @@ function showVictory(v){
 window.backToWelcome = function(){
   if(unsubRoom) unsubRoom();
   if(timerInterval) clearInterval(timerInterval);
-  chatRendered=0; wolfChatRendered=0; lastSeenLogLen=0; lastSeenNarrLen=0; narrQueue=[]; narrActive=false; shownDawnTurns=new Set();
+  chatRendered=0; wolfChatRendered=0; lastSeenLogLen=0; lastSeenNarrLen=0; narrQueue=[]; narrActive=false; shownDawnTurns=new Set(); loversNarrShown=false;
   selectedRoles=new Set(['Loup-Garou','Villageois','Voyante']);
   showScreen('welcome');
 };
