@@ -1243,8 +1243,17 @@ function renderActions(room) {
       else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🪄 Pouvoir en recharge… encore '+((illuLastTurn+illuCooldown)-(g.turn||1))+' tour(s)'}));
     }
     if(role==='Hypnotiseur')                   add('🌀 Hypnotiser','purple',()=>hypnoModal(room));
-    if(role==='Usurpateur')                    add('🎭 Copier un pouvoir','purple',()=>usurpModal(room));
-    if(role==='Marionnettiste')                add('🧵 Contrôler un joueur','purple',()=>puppetModal(room));
+    if(role==='Usurpateur'){
+      if(!g.usurpUsedTurn) add('🎭 Copier un pouvoir','purple',()=>usurpModal(room));
+      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🎭 Pouvoir déjà copié cette nuit'}));
+    }
+    if(role==='Marionnettiste'){
+      const pCooldown = g.puppetCooldownLength || 2;
+      const pLastTurn = g.puppetUsedTurn || 0;
+      const pReady = !pLastTurn || (g.turn||1) - pLastTurn >= pCooldown;
+      if(pReady) add('🧵 Contrôler un joueur','purple',()=>puppetModal(room));
+      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🧵 Recharge… encore '+((pLastTurn+pCooldown)-(g.turn||1))+' nuit(s)'}));
+    }
     if(role==='Avocat')                        add('⚖️ Protéger du vote','',()=>advocateModal(room));
     if(role==='Loup aux Puces'&&!g.fleaUsed)   add('🐜 Infecter lentement','red',()=>fleaModal(room));
   } else {
@@ -1434,7 +1443,7 @@ async function switchPhase(newPhase){
     updates['rooms/'+roomCode+'/game/seerUsed'] = false;
     // illusionUsedThisNight removed — using turn-based cooldown instead
     updates['rooms/'+roomCode+'/game/wolfVotes'] = null;
-    updates['rooms/'+roomCode+'/game/puppetUsedTurn'] = null;
+    updates['rooms/'+roomCode+'/game/usurpUsedTurn'] = null;
     // Reset protection
     const players = room.players ? Object.values(room.players) : [];
     players.forEach(p=>{ updates['rooms/'+roomCode+'/players/'+p.id+'/protected']=false; });
@@ -2157,107 +2166,90 @@ window._hypno = async function(victimId, forcedTargetId){
 };
 
 async function usurpModal(room){
+  const g=room.game;
+  if(g?.usurpUsedTurn===(g?.turn||1)){
+    openModal('🎭 Usurpateur','<p style="color:var(--smoke);font-style:italic;">Vous avez déjà copié un pouvoir cette nuit.</p>');
+    return;
+  }
+  // DO NOT show roles — player sees only names/avatars
   const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
-  openModal('🎭 Usurpateur — Copier',
-    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Vous copiez temporairement le pouvoir de ce joueur.</p>`+
-    players.map(p=>`<button class="m-opt purple" onclick="window._usurp('${p.id}');closeModal()">${p.avatar} ${esc(p.name)} <span style="font-size:.76rem;color:var(--smoke)">${ALL_ROLES[p.role]?.emoji} ${p.role}</span></button>`).join('')
+  openModal('🎭 Usurpateur — Choisir une cible',
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Choisissez un joueur dont vous allez copier le pouvoir secret. Vous ne saurez pas ce que vous copiez avant de choisir.</p>`+
+    players.map(p=>`<button class="m-opt purple" onclick="window._usurp('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
   );
 }
 window._usurp = async function(id){
   const room=await dbGet('rooms/'+roomCode);
   const p=room?.players?.[id];
-  if(p){
-    const rd=ALL_ROLES[p.role];
-    openModal('🎭 Pouvoir Copié',`<div style="text-align:center;padding:16px;">
-      <div style="font-size:2rem;">${rd?.emoji||'?'}</div>
-      <div style="font-family:'Cinzel Decorative',serif;margin-top:8px;">${p.role}</div>
-      <div style="color:var(--smoke);font-size:.83rem;margin-top:6px;font-style:italic;">${rd?.desc||''}</div>
-      <div style="color:var(--ember2);font-size:.8rem;margin-top:10px;">Pouvoir actif pour ce tour uniquement.</div>
-    </div>`);
-    // no log — secret
-  }
+  const g=room?.game;
+  if(!p||!g) return;
+  // Now reveal the copied role to the Usurpateur only (local modal)
+  const rd=ALL_ROLES[p.role];
+  await dbUpdate('rooms/'+roomCode+'/game',{
+    usurpCopiedRole: p.role,
+    usurpUsedTurn: g.turn||1
+  });
+  openModal('🎭 Pouvoir Copié !',`<div style="text-align:center;padding:16px;">
+    <div style="font-size:2rem;">${rd?.emoji||'?'}</div>
+    <div style="font-family:'Cinzel Decorative',serif;margin-top:8px;">${rd ? p.role : 'Inconnu'}</div>
+    <div style="color:var(--smoke);font-size:.83rem;margin-top:6px;font-style:italic;">${rd?.desc||'Un pouvoir mystérieux...'}</div>
+    <div style="color:var(--ember2);font-size:.8rem;margin-top:10px;">Pouvoir actif pour ce tour uniquement.</div>
+  </div>`);
+  // no log — secret
 };
 
 async function puppetModal(room){
   const g=room.game;
-  if(g?.puppetUsedTurn===(g?.turn||1)){
-    openModal('🧵 Marionnettiste','<p style="color:var(--smoke);font-style:italic;">Vous avez déjà utilisé votre pouvoir cette nuit.</p>');
-    return;
+  // Cooldown: 2 or 3 nights (puppetCooldownLength set at use time)
+  if(g?.puppetUsedTurn){
+    const cooldown = g.puppetCooldownLength || 2;
+    const turnsLeft = (g.puppetUsedTurn + cooldown) - (g.turn||1);
+    if(turnsLeft > 0){
+      openModal('🧵 Marionnettiste',`<p style="color:var(--smoke);font-style:italic;">Pouvoir en recharge… encore ${turnsLeft} nuit(s).</p>`);
+      return;
+    }
   }
-  // Marionnettiste can only control non-loup players
-  const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id&&ALL_ROLES[p.role]?.camp!=='loup');
+  // DO NOT show roles — player sees only names/avatars
+  const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
   if(!players.length){
-    openModal('🧵 Marionnettiste','<p style="color:var(--smoke);font-style:italic;">Aucune cible disponible (les loups ne peuvent pas être contrôlés).</p>');
+    openModal('🧵 Marionnettiste','<p style="color:var(--smoke);font-style:italic;">Aucune cible disponible.</p>');
     return;
   }
   openModal('🧵 Marionnettiste — Contrôler',
-    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Choisissez un joueur à contrôler. Vous déciderez ensuite de son action.</p>`+
-    players.map(p=>`<button class="m-opt purple" onclick="window._puppetChoose('${p.id}');closeModal()">${p.avatar} ${esc(p.name)} <span style="font-size:.72rem;color:var(--smoke)">${ALL_ROLES[p.role]?.emoji||''} ${p.role}</span></button>`).join('')
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Choisissez un joueur à contrôler. Demain, il sera forcé de voter pour la cible que vous choisissez.</p>`+
+    players.map(p=>`<button class="m-opt purple" onclick="window._puppetChoose('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
   );
 }
 window._puppetChoose = async function(victimId){
   const room=await dbGet('rooms/'+roomCode);
   const victim=room?.players?.[victimId];
   if(!victim) return;
-  // Offer available actions based on the victim's role
-  const role=victim.role;
-  const rd=ALL_ROLES[role];
-  const actionOpts = [];
-  // Generic actions depending on role
-  if(role==='Voyante') actionOpts.push({label:'🔮 Forcer une révélation aléatoire', action:'seer_random'});
-  if(role==='Sorcière' && !room.game?.witchDeathUsed) actionOpts.push({label:'☠️ Forcer la potion de mort', action:'witch_death_random'});
-  if(role==='Garde du Corps') actionOpts.push({label:'🛡️ Forcer une protection aléatoire', action:'guard_random'});
-  // Generic fallback
-  actionOpts.push({label:'🎲 Forcer à voter aléatoirement demain', action:'vote_random'});
-  openModal(`🧵 Action pour ${esc(victim.name)}`,
-    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Choisissez l'action que vous forcez sur ${esc(victim.name)}.</p>`+
-    actionOpts.map(a=>`<button class="m-opt purple" onclick="window._puppet('${victimId}','${a.action}');closeModal()">${a.label}</button>`).join('')
+  // Step 2: choose who the victim must vote for (hide roles)
+  const targets=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==victimId);
+  openModal(`🧵 Qui doit voter ${esc(victim.name)} ?`,
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Choisissez la cible que vous forcez ${esc(victim.name)} à voter demain.</p>`+
+    targets.map(p=>`<button class="m-opt purple" onclick="window._puppet('${victimId}','${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
   );
 };
-window._puppet = async function(victimId, action){
+window._puppet = async function(victimId, forcedTargetId){
   const room=await dbGet('rooms/'+roomCode);
   const g=room?.game;
   const victim=room?.players?.[victimId];
   if(!victim||!g) return;
+  const cooldown = Math.random()<0.5 ? 2 : 3;
   await dbUpdate('rooms/'+roomCode+'/game',{
     puppetVictim:victimId,
-    puppetAction:action,
-    puppetUsedTurn:g.turn||1
+    puppetAction:'vote_forced',
+    puppetUsedTurn:g.turn||1,
+    puppetCooldownLength:cooldown,
+    // Reuse hypno system for forced vote
+    hypnoVictim:victimId,
+    hypnoForcedTarget:forcedTargetId,
+    hypnoUsedTurn:g.turn||1,
+    hypnoCooldownLength:1
   });
-  // Apply immediately based on action
-  if(action==='seer_random'){
-    const others=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==victimId);
-    // Just force seerUsed so victim can't use it themselves
-    await dbUpdate('rooms/'+roomCode+'/game',{seerUsed:true});
-    await pushLog(`💀 Les fils du destin ont guidé une main inconnue cette nuit…`,'night');
-  } else if(action==='witch_death_random'){
-    const others=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==victimId);
-    if(others.length){
-      const t=others[Math.floor(Math.random()*others.length)];
-      await dbUpdate('rooms/'+roomCode+'/players/'+t.id,{alive:false});
-      await dbUpdate('rooms/'+roomCode+'/game',{witchDeathUsed:true});
-      await pushLog(`💀 Une potion mystérieuse a tué ${t.name} cette nuit…`,'death');
-    }
-  } else if(action==='guard_random'){
-    const others=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==victimId);
-    if(others.length){
-      const t=others[Math.floor(Math.random()*others.length)];
-      await dbUpdate('rooms/'+roomCode+'/players/'+t.id,{protected:true});
-    }
-  } else if(action==='vote_random'){
-    // Store forced vote for victim — applied in _vote
-    const others=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==victimId);
-    if(others.length){
-      const t=others[Math.floor(Math.random()*others.length)];
-      await dbUpdate('rooms/'+roomCode+'/game',{
-        hypnoVictim:victimId,
-        hypnoForcedTarget:t.id,
-        hypnoUsedTurn:g.turn||1,
-        hypnoCooldownLength:1
-      });
-    }
-  }
   // no public log — secret
+
 };
 
 async function advocateModal(room){
