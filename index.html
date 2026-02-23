@@ -489,8 +489,8 @@ const ALL_ROLES = {
   'Dieu du Village': {camp:'village',emoji:'✨', desc:'Une fois dans la partie, vous pouvez annuler une élimination — de jour comme de nuit. Utilisez ce miracle au bon moment.'},
   'Nécromancien':    {camp:'village',emoji:'💀', desc:'Vous pouvez communiquer avec les esprits des morts et obtenir des informations sur leur camp.'},
   'Chronomancien':   {camp:'village',emoji:'⏳', desc:'Une fois par partie, vous pouvez rembobiner un tour complet et rejouer les événements. Un pouvoir immense.'},
-  'Illusionniste':   {camp:'neutre', emoji:'🪄', desc:'Vous pouvez modifier l\'information reçue par la Voyante. Elle verra ce que vous voulez, pas la réalité.'},
-  'Hypnotiseur':     {camp:'neutre', emoji:'🌀', desc:'Vous forcez un joueur à voter pour une cible précise lors du prochain vote. Manipulation pure.'},
+  'Illusionniste':   {camp:'neutre', emoji:'🪄', desc:'Vous pouvez modifier l\'information reçue par la Voyante. Rechargement : 2 ou 3 tours (aléatoire). Elle verra ce que vous voulez, pas la réalité.'},
+  'Hypnotiseur':     {camp:'neutre', emoji:'🌀', desc:'Vous forcez un joueur à voter pour une cible précise lors du prochain vote. Rechargement : 2 ou 3 tours (aléatoire). Manipulation pure.'},
   'Usurpateur':      {camp:'neutre', emoji:'🎭', desc:'Vous pouvez copier temporairement le pouvoir d\'un autre joueur. Le pouvoir copié dure un tour.'},
   'Avocat':          {camp:'neutre', emoji:'⚖️', desc:'Vous protégez un joueur contre l\'élimination par vote. Votre client ne peut pas être éliminé ce tour.'},
   'Traître':         {camp:'neutre', emoji:'🗡️', desc:'Vous commencez comme villageois, mais rejoindrez secrètement les loups plus tard dans la partie.'},
@@ -1024,8 +1024,9 @@ function renderActions(room) {
       else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'✨ Pouvoir divin déjà utilisé'}));
     }
     if(role==='Chronomancien'){
-      if(!g.chronoUsed) add('⏳ Rembobiner un tour','purple',()=>chronoAction());
-      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'⏳ Rembobinage déjà utilisé'}));
+      if(!g.chronoUsed && (g.turn||1) > 1) add('⏳ Rembobiner un tour','purple',()=>chronoAction());
+      else if(g.chronoUsed) btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'⏳ Rembobinage déjà utilisé'}));
+      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'⏳ Impossible de rembobiner à la première nuit'}));
     }
     if(role==='Nécromancien')                  add('💀 Consulter les morts','purple',()=>necroModal(room));
     if(role==='Cupidon'){
@@ -1034,8 +1035,11 @@ function renderActions(room) {
     }
     // Neutral roles
     if(role==='Illusionniste'){
-      if(!g.illusionUsedThisNight) add('🪄 Fausser la Voyante','purple',()=>illusionModal(room));
-      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🪄 Déjà utilisé cette nuit'}));
+      const illuCooldown = g.illusionCooldownLength || 2;
+      const illuLastTurn = g.illusionLastTurn || 0;
+      const illuReady = !illuLastTurn || (g.turn||1) - illuLastTurn >= illuCooldown;
+      if(illuReady) add('🪄 Fausser la Voyante','purple',()=>illusionModal(room));
+      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🪄 Pouvoir en recharge… encore '+((illuLastTurn+illuCooldown)-(g.turn||1))+' tour(s)'}));
     }
     if(role==='Hypnotiseur')                   add('🌀 Hypnotiser','purple',()=>hypnoModal(room));
     if(role==='Usurpateur')                    add('🎭 Copier un pouvoir','purple',()=>usurpModal(room));
@@ -1169,7 +1173,7 @@ async function switchPhase(newPhase){
     updates['rooms/'+roomCode+'/game/turn'] = (g.turn||1)+1;
     // Reset per-night flags
     updates['rooms/'+roomCode+'/game/seerUsed'] = false;
-    updates['rooms/'+roomCode+'/game/illusionUsedThisNight'] = false;
+    // illusionUsedThisNight removed — using turn-based cooldown instead
     updates['rooms/'+roomCode+'/game/wolfVotes'] = null;
     // Reset protection
     const players = room.players ? Object.values(room.players) : [];
@@ -1178,6 +1182,8 @@ async function switchPhase(newPhase){
     // Reset day votes for new day
     updates['rooms/'+roomCode+'/game/dayVotes'] = null;
     updates['rooms/'+roomCode+'/game/voteResolved'] = false;
+    updates['rooms/'+roomCode+'/game/hypnoVictim'] = null;
+    updates['rooms/'+roomCode+'/game/hypnoForcedTarget'] = null;
   }
   await update(ref(db), updates);
   const turn = newPhase==='night' ? (g.turn||1)+1 : g.turn;
@@ -1718,20 +1724,52 @@ async function illusionModal(room){
   );
 }
 window._illuse = async function(id){
-  await dbUpdate('rooms/'+roomCode+'/game',{illusionTarget:id, illusionUsedThisNight:true});
+  const room=await dbGet('rooms/'+roomCode);
+  const g=room?.game;
+  if(!g) return;
+  const cooldown = Math.random()<0.5 ? 2 : 3;
+  await dbUpdate('rooms/'+roomCode+'/game',{illusionTarget:id, illusionUsedThisNight:true, illusionLastTurn:g.turn||1, illusionCooldownLength:cooldown});
   // no log — secret
 };
 
 async function hypnoModal(room){
+  const g = room.game;
+  // Check cooldown
+  if(g?.hypnoUsedTurn){
+    const cooldown = g.hypnoCooldownLength || 2;
+    const turnsLeft = (g.hypnoUsedTurn + cooldown) - (g.turn||1);
+    if(turnsLeft > 0){
+      openModal('🌀 Hypnotiseur','<p style="color:var(--smoke);font-style:italic;">Pouvoir en recharge… encore '+ turnsLeft +' tour(s).</p>');
+      return;
+    }
+  }
   const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
   openModal('🌀 Hypnotiseur — Cibler',
-    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Ce joueur sera forcé de voter contre lui-même (symbolique) demain.</p>`+
-    players.map(p=>`<button class="m-opt purple" onclick="window._hypno('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Demain, ce joueur sera forcé de voter pour la cible que vous choisissez maintenant.</p>`+
+    players.map(p=>`<button class="m-opt purple" onclick="window._hypnoTarget('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
   );
 }
-window._hypno = async function(id){
+window._hypnoTarget = async function(victimId){
   const room=await dbGet('rooms/'+roomCode);
-  const p=room?.players?.[id];
+  const victim=room?.players?.[victimId];
+  const targets=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==victimId);
+  openModal(`🌀 Qui doit voter ${victim?.name||'?'} ?`,
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Choisissez la cible forcée.</p>`+
+    targets.map(p=>`<button class="m-opt purple" onclick="window._hypno('${victimId}','${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+  );
+};
+window._hypno = async function(victimId, forcedTargetId){
+  const room=await dbGet('rooms/'+roomCode);
+  const p=room?.players?.[victimId];
+  const g=room?.game;
+  if(!p||!g) return;
+  const cooldown = Math.random()<0.5 ? 2 : 3;
+  await dbUpdate('rooms/'+roomCode+'/game',{
+    hypnoVictim: victimId,
+    hypnoForcedTarget: forcedTargetId,
+    hypnoUsedTurn: g.turn||1,
+    hypnoCooldownLength: cooldown
+  });
   // no log — secret
 };
 
@@ -1857,9 +1895,21 @@ window._vote = async function(targetId){
   if(!room?.game || room.game.phase !== 'day') return;
   if(room.game.voteResolved) return; // Already resolved
   const voter = room.players?.[me.id];
-  const target = room.players?.[targetId];
-  if(!voter?.alive || !target?.alive) return;
+  if(!voter?.alive) return;
   if(room.game.dayVotes?.[me.id]) return; // already voted
+
+  // Hypnotiseur: force vote if this player is the victim
+  const g = room.game;
+  if(g?.hypnoVictim === me.id && g?.hypnoForcedTarget){
+    const forcedTarget = room.players?.[g.hypnoForcedTarget];
+    if(forcedTarget?.alive && targetId !== g.hypnoForcedTarget){
+      openModal('🌀 Hypnose !',`<div style="text-align:center;padding:14px;color:var(--smoke);font-style:italic;">Une force irrésistible contrôle votre vote… <strong style="color:#c0a0ff">${forcedTarget?.name||'?'}</strong> est votre seule cible possible !</div>`);
+      targetId = g.hypnoForcedTarget; // force the vote
+    }
+  }
+
+  const target = room.players?.[targetId];
+  if(!target?.alive) return;
 
   const voteUpdate = {};
   voteUpdate[`rooms/${roomCode}/game/dayVotes/${me.id}`] = targetId;
@@ -2231,7 +2281,6 @@ function showNextNarr(){
   const btn=ov.querySelector('.narr-btn');
   btn.style.animation='none';void btn.offsetWidth;btn.style.animation='';
   ov.classList.add('show');
-  setTimeout(()=>{if(ov.classList.contains('show'))closeNarr();},9000);
 }
 window.closeNarr = function(){document.getElementById('narr').classList.remove('show');setTimeout(showNextNarr,400);};
 
