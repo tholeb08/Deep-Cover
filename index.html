@@ -344,10 +344,6 @@ body{background:var(--dark);color:var(--moon);font-family:'EB Garamond',Georgia,
     </div>
     <div class="game-side">
       <div class="event-card" id="ev-card" style="display:none;"></div>
-      <div class="master-panel" id="master-panel" style="display:none;">
-        <div class="m-title">🎮 Maître du Jeu</div>
-        <div class="m-btns" id="m-btns"></div>
-      </div>
       <div class="chat-panel">
         <div class="chat-head">💬 Discussion</div>
         <div class="chat-msgs" id="chat-msgs"></div>
@@ -411,27 +407,27 @@ const FIREBASE_CONFIG = {
 // DATA
 // ================================================================
 const ALL_ROLES = {
-  'Loup-Garou':      {camp:'loup',   emoji:'🐺', desc:'Élimine une victime chaque nuit avec les autres loups.'},
-  'Loup Blanc':      {camp:'loup',   emoji:'🤍', desc:'Joue avec les loups mais veut finir seul en vie.'},
-  'Loup Enragé':     {camp:'loup',   emoji:'🔥', desc:'Une nuit sur 3, tue deux joueurs.'},
-  'Loup Infectieux': {camp:'loup',   emoji:'🦠', desc:'Peut transformer sa cible en Loup-Garou (1x).'},
-  'Loup aux Puces':  {camp:'loup',   emoji:'🐜', desc:'Infecte une cible ; elle devient loup après 3 tours.'},
-  'Villageois':      {camp:'village',emoji:'👨‍🌾',desc:'Observe, déduit et vote intelligemment.'},
-  'Voyante':         {camp:'village',emoji:'🔮', desc:'Révèle chaque nuit le rôle d\'un joueur.'},
-  'Sorcière':        {camp:'village',emoji:'🧪', desc:'Une potion de vie et une de mort (1x chacune).'},
-  'Chasseur':        {camp:'village',emoji:'🏹', desc:'À sa mort, emporte un joueur avec lui.'},
-  'Cupidon':         {camp:'village',emoji:'💘', desc:'Lie deux amoureux. Si l\'un meurt, l\'autre aussi.'},
-  'Garde du Corps':  {camp:'village',emoji:'🛡️', desc:'Protège un joueur la nuit (se sacrifie si besoin).'},
-  'Maire':           {camp:'village',emoji:'👑', desc:'Voix double lors des votes.'},
-  'Dieu du Village': {camp:'village',emoji:'✨', desc:'Annule une élimination une fois dans la partie.'},
-  'Nécromancien':    {camp:'village',emoji:'💀', desc:'Obtient des infos auprès des morts.'},
-  'Chronomancien':   {camp:'village',emoji:'⏳', desc:'Rembobine un tour complet une fois.'},
-  'Illusionniste':   {camp:'neutre', emoji:'🪄', desc:'Modifie ce que la Voyante perçoit.'},
-  'Hypnotiseur':     {camp:'neutre', emoji:'🌀', desc:'Force un joueur à voter pour une cible.'},
-  'Usurpateur':      {camp:'neutre', emoji:'🎭', desc:'Copie temporairement le pouvoir d\'un autre joueur.'},
-  'Avocat':          {camp:'neutre', emoji:'⚖️', desc:'Protège un joueur contre l\'élimination par vote.'},
-  'Traître':         {camp:'neutre', emoji:'🗡️', desc:'Commence villageois, rejoint les loups plus tard.'},
-  'Marionnettiste':  {camp:'neutre', emoji:'🧵', desc:'Contrôle les actions d\'un joueur pendant la nuit.'},
+  'Loup-Garou':      {camp:'loup',   emoji:'🐺', desc:'Chaque nuit, les loups choisissent ensemble une victime. Votre objectif : éliminer tous les villageois.'},
+  'Loup Blanc':      {camp:'loup',   emoji:'🤍', desc:'Vous jouez avec les loups… mais votre vrai objectif est de finir SEUL en vie. Trahissez au moment opportun.'},
+  'Loup Enragé':     {camp:'loup',   emoji:'🔥', desc:'Une nuit sur trois, vous tuez DEUX joueurs au lieu d\'un. Votre violence peut accélérer la victoire des loups.'},
+  'Loup Infectieux': {camp:'loup',   emoji:'🦠', desc:'Une fois par partie, au lieu de tuer, vous pouvez transformer votre cible en Loup-Garou sans qu\'elle le sache immédiatement.'},
+  'Loup aux Puces':  {camp:'loup',   emoji:'🐜', desc:'Vous infectez secrètement une cible. Après quelques tours, elle deviendra Loup-Garou sans le savoir.'},
+  'Villageois':      {camp:'village',emoji:'👨‍🌾',desc:'Aucun pouvoir particulier. Votre seule arme : l\'observation, la logique et le vote. Trouvez les loups avant qu\'ils ne vous trouvent.'},
+  'Voyante':         {camp:'village',emoji:'🔮', desc:'Chaque nuit, vous révélez le rôle exact d\'un joueur de votre choix. Guidez le village sans vous exposer.'},
+  'Sorcière':        {camp:'village',emoji:'🧪', desc:'Vous possédez une potion de vie (ressuscite un mort) et une potion de mort (tue une cible). Chacune utilisable une seule fois.'},
+  'Chasseur':        {camp:'village',emoji:'🏹', desc:'Si vous êtes éliminé(e), vous pouvez immédiatement tuer un autre joueur. Votre mort n\'est jamais gratuite.'},
+  'Cupidon':         {camp:'village',emoji:'💘', desc:'Au début de la partie, vous avez lié deux amoureux. Si l\'un meurt, l\'autre meurt aussi. Les amoureux peuvent gagner seuls.'},
+  'Garde du Corps':  {camp:'village',emoji:'🛡️', desc:'Chaque nuit, vous protégez un joueur contre une attaque. Si votre protégé devrait mourir, c\'est vous qui mourez à sa place.'},
+  'Maire':           {camp:'village',emoji:'👑', desc:'Élu(e) par le village (ou désigné par le rôle). Votre voix compte double lors des votes d\'élimination.'},
+  'Dieu du Village': {camp:'village',emoji:'✨', desc:'Une fois dans la partie, vous pouvez annuler une élimination — de jour comme de nuit. Utilisez ce miracle au bon moment.'},
+  'Nécromancien':    {camp:'village',emoji:'💀', desc:'Vous pouvez communiquer avec les esprits des morts et obtenir des informations sur leur camp.'},
+  'Chronomancien':   {camp:'village',emoji:'⏳', desc:'Une fois par partie, vous pouvez rembobiner un tour complet et rejouer les événements. Un pouvoir immense.'},
+  'Illusionniste':   {camp:'neutre', emoji:'🪄', desc:'Vous pouvez modifier l\'information reçue par la Voyante. Elle verra ce que vous voulez, pas la réalité.'},
+  'Hypnotiseur':     {camp:'neutre', emoji:'🌀', desc:'Vous forcez un joueur à voter pour une cible précise lors du prochain vote. Manipulation pure.'},
+  'Usurpateur':      {camp:'neutre', emoji:'🎭', desc:'Vous pouvez copier temporairement le pouvoir d\'un autre joueur. Le pouvoir copié dure un tour.'},
+  'Avocat':          {camp:'neutre', emoji:'⚖️', desc:'Vous protégez un joueur contre l\'élimination par vote. Votre client ne peut pas être éliminé ce tour.'},
+  'Traître':         {camp:'neutre', emoji:'🗡️', desc:'Vous commencez comme villageois, mais rejoindrez secrètement les loups plus tard dans la partie.'},
+  'Marionnettiste':  {camp:'neutre', emoji:'🧵', desc:'Vous contrôlez secrètement les actions d\'un joueur pendant la nuit. Il agira selon votre volonté.'},
 };
 
 const AVATARS = ['🧑','👩','🧔','👵','🧒','👧','🧑‍🦱','🧑‍🦳','🧑‍🦰','🧑‍🦲','🧕','🧛','🧙','🧝','🧟','🧜','🧚','🎩'];
@@ -470,6 +466,7 @@ let chatRendered = 0;
 let narrQueue = [];
 let narrActive = false;
 let lastSeenLogLen = 0;
+let lastSeenNarrLen = 0;
 let localRoom = null; // cached room for timer
 
 // ================================================================
@@ -720,7 +717,7 @@ window.launchGame = async function() {
     phase:'night', turn:1,
     phaseEndTime: Date.now()+nightDur*1000,
     nightDur, dayDur, evProb,
-    witchLifeUsed:false, witchDeathUsed:false, godUsed:false, chronoUsed:false,
+    witchLifeUsed:false, witchDeathUsed:false, godUsed:false, chronoUsed:false, infectUsed:false,
     loversA, loversB,
     currentEvent:null, victory:null,
     lastPhaseChange: Date.now(),
@@ -761,6 +758,7 @@ function onRoomUpdate(room) {
     updateGameView(room);
     renderChat(room);
     checkNewLogNarr(room);
+    checkNewNarr(room);
   }
 
   if(room.status==='ended' && room.game?.victory){
@@ -797,7 +795,6 @@ function updateGameView(room) {
   renderPlayers(players);
   renderActions(room);
   renderEvent(g);
-  if(isHost) renderMaster(room);
 }
 
 function renderMyRole(room) {
@@ -843,9 +840,8 @@ function renderPlayers(players) {
     const isMe=p.id===me.id;
     d.className=`p-tile ${isMe?'me':''} ${p.mayor?'mayor':''} ${p.lovers?'lover':''} ${p.protected?'protected':''}`;
     const rd=ALL_ROLES[p.role];
-    const roleShow = (isMe||isHost) && rd ? `<div class="t-role">${rd.emoji} ${p.role}</div>` : '';
+    const roleShow = isMe && rd ? `<div class="t-role">${rd.emoji} ${p.role}</div>` : '';
     d.innerHTML=`<div class="t-av">${p.avatar}</div><div class="t-name">${esc(p.name)}${isMe?' (vous)':''}</div>${roleShow}`;
-    if(isHost) d.onclick=()=>hostPlayerModal(p);
     grid.appendChild(d);
   });
   document.getElementById('dead-zone').style.display=hasDead?'block':'none';
@@ -858,7 +854,7 @@ function renderActions(room) {
   btns.innerHTML='';
 
   if(!myP){btns.innerHTML='<div style="color:var(--smoke);font-style:italic;font-size:.88rem;">En attente…</div>';return;}
-  if(!myP.alive){btns.innerHTML='<div style="color:var(--smoke);font-style:italic;font-size:.88rem;">Vous êtes éliminé. Observez en silence…</div>';return;}
+  if(!myP.alive){btns.innerHTML='<div style="color:var(--smoke);font-style:italic;font-size:.88rem;">☠️ Vous êtes éliminé(e). Observez les vivants en silence…</div>';return;}
 
   const g = room.game;
   const role = myP.role;
@@ -868,23 +864,87 @@ function renderActions(room) {
     b.className='a-btn '+cls; b.innerHTML=lbl; b.onclick=fn; btns.appendChild(b);
   };
 
+  // Role-specific flavor text
+  const ROLE_NIGHT_MSG = {
+    'Loup-Garou':     '🐺 La nuit vous appartient. Coordonnez-vous avec vos frères pour choisir une proie.',
+    'Loup Blanc':     '🤍 Jouez avec les loups… mais gardez vos propres intérêts en tête. La trahison viendra en son temps.',
+    'Loup Enragé':    '🔥 Votre rage gronde. Cette nuit, désignez votre cible — et parfois, frappez deux fois.',
+    'Loup Infectieux':'🦠 Vous pouvez tuer… ou infecter. Transformer un villageois en loup peut changer la partie.',
+    'Loup aux Puces': '🐜 Vous semez vos puces en secret. La victime ne le saura pas tout de suite… mais elle deviendra l\'un des vôtres.',
+    'Voyante':        '🔮 Vos yeux percent les secrets. Choisissez un joueur pour révéler sa vraie nature.',
+    'Sorcière':       '🧪 Vos potions sont précieuses. Une seule vie, une seule mort — utilisez-les à bon escient.',
+    'Garde du Corps': '🛡️ Qui protéger cette nuit ? Si votre protégé est attaqué, vous vous sacrifierez à sa place.',
+    'Dieu du Village':'✨ Le destin lui-même peut être annulé par votre volonté divine.',
+    'Chronomancien':  '⏳ Le temps obéit à vos ordres. Rembobiner un tour pourrait tout changer.',
+    'Nécromancien':   '💀 Les morts ont des secrets que les vivants ignorent. Écoutez leurs murmures.',
+    'Chasseur':       '🏹 Cette nuit, attendez. Si l\'on vous tue, vous emporterez quelqu\'un avec vous.',
+    'Cupidon':        '💘 Les amoureux ont déjà été liés. Observez et préparez votre stratégie.',
+    'Maire':          '👑 Vous êtes le Maire — votre voix compte double au village. Méritez cette confiance.',
+    'Villageois':     '👨‍🌾 Aucun pouvoir, mais vos yeux sont vos armes. Observez qui ment le jour venu.',
+    'Illusionniste':  '🪄 Vous pouvez semer la confusion dans l\'esprit de la Voyante…',
+    'Hypnotiseur':    '🌀 Préparez votre prochaine suggestion. Demain, quelqu\'un votera comme vous le dictez.',
+    'Usurpateur':     '🎭 Vous pouvez copier le pouvoir d\'un autre. Choisissez bien votre cible.',
+    'Avocat':         '⚖️ Un joueur sera protégé de l\'élimination lors du prochain vote. Qui mérite votre défense ?',
+    'Traître':        '🗡️ Pour l\'instant, vous semblez être un villageois. Votre loyauté changera bientôt…',
+    'Marionnettiste': '🧵 Vos fils de contrôle sont prêts. Un joueur fera cette nuit ce que vous décidez.',
+  };
+
+  const ROLE_DAY_MSG = {
+    'Loup-Garou':     '🐺 Dissimulez-vous parmi les villageois. Accusez, semez le doute, survivez.',
+    'Loup Blanc':     '🤍 Ni vraiment loup, ni vraiment villageois. Manipulez tout le monde pour rester seul en vie.',
+    'Loup Enragé':    '🔥 Le jour, vous êtes un loup comme les autres. Mentez mieux.',
+    'Loup Infectieux':'🦠 Votre infection est semée. Il ne reste qu\'à attendre… et faire bonne figure.',
+    'Loup aux Puces': '🐜 La contamination progresse en secret. Restez discret.',
+    'Voyante':        '🔮 Vous savez des choses que les autres ignorent. À vous de guider le village sans vous dévoiler.',
+    'Sorcière':       '🧪 Vous connaissez vos potions. Guidez les votes avec sagesse.',
+    'Garde du Corps': '🛡️ Votre rôle est connu de vous seul. Votez intelligemment.',
+    'Dieu du Village':'✨ Votez avec les autres. Votre pouvoir sacré peut encore sauver quelqu\'un si nécessaire.',
+    'Chronomancien':  '⏳ Le temps est précieux. Participez aux débats, votre pouvoir attend le bon moment.',
+    'Nécromancien':   '💀 Les murmures des morts vous ont éclairé(e). Utilisez cette connaissance prudemment.',
+    'Chasseur':       '🏹 Participez aux débats. Si vous êtes éliminé, vous choisissez qui vous suit dans la mort.',
+    'Cupidon':        '💘 Les amoureux que vous avez liés sont dans la partie. Leur destin est désormais lié.',
+    'Maire':          '👑 Votre voix compte double. Guidez le vote du village vers la vérité.',
+    'Villageois':     '👨‍🌾 Analysez, accusez, défendez-vous. C\'est tout ce que vous avez — et ça peut suffire.',
+    'Illusionniste':  '🪄 La confusion que vous semez protège les loups ou vous-même. Observez les réactions.',
+    'Hypnotiseur':    '🌀 Votre suggestion est active. Observez si votre cible vote comme prévu.',
+    'Usurpateur':     '🎭 Vous avez (peut-être) copié un pouvoir. Utilisez-le à bon moment.',
+    'Avocat':         '⚖️ Votre client est protégé ce vote. Mais pour combien de temps ?',
+    'Traître':        '🗡️ Pour l\'instant villageois. Bientôt, vous changerez de camp.',
+    'Marionnettiste': '🧵 Vos fils tirent dans l\'ombre. Observez les conséquences.',
+  };
+
+  const msg = g.phase==='night' ? (ROLE_NIGHT_MSG[role]||'Attendez la nuit…') : (ROLE_DAY_MSG[role]||'Participez aux débats.');
+  btns.innerHTML=`<div style="color:var(--moon2);font-style:italic;font-size:.85rem;line-height:1.5;margin-bottom:8px;width:100%;">${msg}</div>`;
+
   if(g.phase==='night'){
+    // Wolf roles
+    if(['Loup-Garou','Loup Blanc','Loup Enragé','Loup aux Puces'].includes(role))
+      add('🐺 Voter une cible (loups)','red',()=>wolfVoteModal(room));
+    if(role==='Loup Infectieux'){
+      add('🐺 Voter une cible (loups)','red',()=>wolfVoteModal(room));
+      add('🦠 Infecter (au lieu de tuer)','red',()=>infectModal(room));
+    }
+    // Village roles
     if(role==='Voyante')                       add('🔮 Voir un rôle','',()=>seerModal(room));
     if(role==='Sorcière'&&!g.witchLifeUsed)    add('🧪 Potion de Vie','',()=>witchLifeModal(room));
     if(role==='Sorcière'&&!g.witchDeathUsed)   add('☠️ Potion de Mort','red',()=>witchDeathModal(room));
     if(role==='Garde du Corps')                add('🛡️ Protéger','',()=>protectModal(room));
-    if(role==='Dieu du Village'&&!g.godUsed)   add('✨ Annuler mort','purple',()=>godModal(room));
-    if(role==='Chronomancien'&&!g.chronoUsed)  add('⏳ Rembobiner','purple',()=>chronoAction());
-    if(role==='Nécromancien')                  add('💀 Consulter morts','',()=>necroModal(room));
-    if(['Loup-Garou','Loup Blanc','Loup Enragé','Loup Infectieux','Loup aux Puces'].includes(role))
-      add('🐺 Voter une cible','red',()=>wolfVoteModal(room));
+    if(role==='Dieu du Village'&&!g.godUsed)   add('✨ Annuler une mort','purple',()=>godModal(room));
+    if(role==='Chronomancien'&&!g.chronoUsed)  add('⏳ Rembobiner un tour','purple',()=>chronoAction());
+    if(role==='Nécromancien')                  add('💀 Consulter les morts','',()=>necroModal(room));
+    // Neutral roles
+    if(role==='Illusionniste')                 add('🪄 Fausser la Voyante','purple',()=>illusionModal(room));
+    if(role==='Hypnotiseur')                   add('🌀 Hypnotiser','purple',()=>hypnoModal(room));
+    if(role==='Usurpateur')                    add('🎭 Copier un pouvoir','purple',()=>usurpModal(room));
+    if(role==='Marionnettiste')                add('🧵 Contrôler un joueur','purple',()=>puppetModal(room));
+    if(role==='Avocat')                        add('⚖️ Protéger du vote','',()=>advocateModal(room));
   } else {
+    // Day — everyone votes
     add('⚖️ Voter pour éliminer','red',()=>voteModal(room));
-    if(role==='Dieu du Village'&&!g.godUsed)   add('✨ Annuler élim.','purple',()=>godModal(room));
+    if(role==='Chasseur'&&!g.hunterUsed)       add('🏹 Tirer (si éliminé)','red',()=>hunterModal(room));
+    if(role==='Dieu du Village'&&!g.godUsed)   add('✨ Annuler une élim.','purple',()=>godModal(room));
+    if(role==='Maire')                         add('👑 Passer la couronne','',()=>mayorPassModal(room));
   }
-
-  if(btns.children.length===0)
-    btns.innerHTML='<div style="color:var(--smoke);font-style:italic;font-size:.88rem;">Pas d\'action spéciale — observez, discutez, survivez.</div>';
 }
 
 function renderEvent(g) {
@@ -895,26 +955,6 @@ function renderEvent(g) {
   card.innerHTML=`<div class="ev-big">${ev.icon}</div><div class="ev-title">${esc(ev.name)}</div><div class="ev-desc">${esc(ev.desc)}</div>`;
 }
 
-function renderMaster(room) {
-  const panel = document.getElementById('master-panel');
-  const btns = document.getElementById('m-btns');
-  panel.style.display='block'; btns.innerHTML='';
-
-  const add = (lbl,cls,fn) => {
-    const b=document.createElement('button');
-    b.className='m-btn '+cls; b.innerHTML=lbl; b.onclick=fn; btns.appendChild(b);
-  };
-
-  if(room.game.phase==='night'){
-    add('☀️ Passer au Jour','',()=>switchPhase('day'));
-    add('💀 Mort cette nuit','kill',()=>masterKillModal(room,'nuit'));
-  } else {
-    add('🌙 Passer à la Nuit','',()=>switchPhase('night'));
-    add('⚖️ Éliminer (vote)','kill',()=>masterKillModal(room,'vote'));
-  }
-  add('👑 Nommer Maire','',()=>masterMayorModal(room));
-  add('🌀 Déclencher Événement','',()=>masterTriggerEvent());
-}
 
 // ================================================================
 // TIMER
@@ -927,7 +967,19 @@ function startTimerLoop(){
     const rem = Math.max(0, Math.ceil((g.phaseEndTime - Date.now())/1000));
     const el = document.getElementById('ph-timer');
     if(el){el.textContent=rem+'s'; el.className='ph-timer'+(rem<=10?' urgent':'');}
-    if(rem<=0 && isHost) { clearInterval(timerInterval); switchPhase(g.phase==='night'?'day':'night'); }
+    if(rem<=0) {
+      clearInterval(timerInterval);
+      // Only the "coordinator" (player with lowest id alphabetically among alive players) switches phase
+      const players = localRoom?.players ? Object.values(localRoom.players) : [];
+      const alive = players.filter(p=>p.alive);
+      const coordinator = alive.length > 0 ? alive.sort((a,b)=>a.id.localeCompare(b.id))[0] : null;
+      if(coordinator && coordinator.id === me.id) {
+        switchPhase(g.phase==='night'?'day':'night');
+      } else if(!coordinator) {
+        // fallback: host switches
+        if(isHost) switchPhase(g.phase==='night'?'day':'night');
+      }
+    }
   }, 500);
 }
 
@@ -938,6 +990,8 @@ async function switchPhase(newPhase){
   const room = await dbGet('rooms/'+roomCode);
   if(!room||!room.game) return;
   const g = room.game;
+  // Guard: don't switch if already switched (phaseEndTime already past and phase already changed)
+  if(g.phase === newPhase) return;
   const dur = newPhase==='night' ? g.nightDur||90 : g.dayDur||180;
   const updates = {};
   updates['rooms/'+roomCode+'/game/phase'] = newPhase;
@@ -953,10 +1007,10 @@ async function switchPhase(newPhase){
   const turn = newPhase==='night' ? (g.turn||1)+1 : g.turn;
   if(newPhase==='night'){
     await pushLog(`🌑 — Nuit ${turn} — Les loups se réveillent.`,'night');
-    queueNarr({fire:'🌑',color:'#8070b0',title:`Nuit ${turn}`,text:`Le soleil s'est couché. Les volets se ferment. Dans l'obscurité totale, quelque chose se déplace lentement entre les maisons. Quelqu'un prépare son crime.`});
+    pushNarr({fire:'🌑',color:'#8070b0',title:`Nuit ${turn}`,text:`Le soleil s'est couché. Les volets se ferment. Dans l'obscurité totale, quelque chose se déplace lentement entre les maisons. Quelqu'un prépare son crime.`});
   } else {
     await pushLog(`☀️ — Jour ${g.turn} — Le village s'éveille.`,'day');
-    queueNarr({fire:'☀️',color:'#c8a050',title:`Jour ${g.turn}`,text:`L'aube rougeoyante réveille le village, mais l'air reste lourd de mensonges. Les regards se croisent, fuyants ou accusateurs. Qui parmi nous ment ce matin ?`});
+    pushNarr({fire:'☀️',color:'#c8a050',title:`Jour ${g.turn}`,text:`L'aube rougeoyante réveille le village, mais l'air reste lourd de mensonges. Les regards se croisent, fuyants ou accusateurs. Qui parmi nous ment ce matin ?`});
   }
   const freshRoom = await dbGet('rooms/'+roomCode);
   if(freshRoom) await maybeEvent(freshRoom.game);
@@ -972,20 +1026,13 @@ async function maybeEvent(g){
     const ev = ALL_EVENTS[Math.floor(Math.random()*ALL_EVENTS.length)];
     await dbUpdate('rooms/'+roomCode+'/game',{currentEvent:ev});
     await pushLog(`🌀 ÉVÉNEMENT : ${ev.name} — ${ev.desc}`,'chaos');
-    queueNarr({fire:ev.icon,color:'#c0a0ff',title:ev.name,text:ev.desc+' Un frisson parcourt le village. Personne ne sait encore quelles conséquences cela aura vraiment…'});
+    pushNarr({fire:ev.icon,color:'#c0a0ff',title:ev.name,text:ev.desc+' Un frisson parcourt le village. Personne ne sait encore quelles conséquences cela aura vraiment…'});
     await applyEvent(ev);
   } else {
     await dbUpdate('rooms/'+roomCode+'/game',{currentEvent:null});
   }
 }
 
-async function masterTriggerEvent(){
-  const ev = ALL_EVENTS[Math.floor(Math.random()*ALL_EVENTS.length)];
-  await dbUpdate('rooms/'+roomCode+'/game',{currentEvent:ev});
-  await pushLog(`🌀 ÉVÉNEMENT : ${ev.name} — ${ev.desc}`,'chaos');
-  queueNarr({fire:ev.icon,color:'#c0a0ff',title:ev.name,text:ev.desc+' Le destin du village vient de basculer…'});
-  await applyEvent(ev);
-}
 
 async function applyEvent(ev){
   const room = await dbGet('rooms/'+roomCode);
@@ -1036,7 +1083,7 @@ async function killPlayer(playerId, source){
   const narr = source==='nuit'||source==='loups'
     ? {fire:'🌑',color:'#e07070',title:'La Nuit a Frappé',text:`Les ombres ont déchiré le silence. Ce matin, les villageois ont retrouvé ${p.name} — ${ALL_ROLES[p.role]?.emoji||''} ${p.role} — froid et immobile. Le givre recouvrait ses lèvres comme si la mort avait scellé ses secrets.`}
     : {fire:'⚖️',color:'#e0c070',title:'La Justice du Village',text:`Après de longues heures de débat, la foule a levé la main. ${p.name} — ${ALL_ROLES[p.role]?.emoji||''} ${p.role} — a été conduit au centre du village. Ses yeux cherchaient encore un allié dans la foule. Il n'en trouva aucun.`};
-  queueNarr(narr);
+  pushNarr(narr);
 
   // Lovers
   const g = room.game;
@@ -1046,7 +1093,7 @@ async function killPlayer(playerId, source){
     if(lover&&lover.alive){
       await dbUpdate('rooms/'+roomCode+'/players/'+loverId,{alive:false});
       await pushLog(`❤️ ${lover.name} ne peut survivre à la mort de son amour et meurt aussi.`,'death');
-      queueNarr({fire:'💔',color:'#f48fb1',title:'Un Amour Brisé',text:`Quand ${p.name} est tombé(e), quelque chose dans le cœur de ${lover.name} s'est brisé. Les amoureux liés par Cupidon ne peuvent survivre l'un sans l'autre. La légende s'est confirmée.`});
+      pushNarr({fire:'💔',color:'#f48fb1',title:'Un Amour Brisé',text:`Quand ${p.name} est tombé(e), quelque chose dans le cœur de ${lover.name} s'est brisé. Les amoureux liés par Cupidon ne peuvent survivre l'un sans l'autre. La légende s'est confirmée.`});
     }
   }
   if(p.mayor) await pushLog(`👑 Le Maire est mort ! Désignez un nouveau maire.`,'system');
@@ -1054,27 +1101,9 @@ async function killPlayer(playerId, source){
   await checkVictory();
 }
 
-// ================================================================
-// MASTER ACTIONS
-// ================================================================
-async function masterKillModal(room, source){
-  const players = Object.values(room.players||{}).filter(p=>p.alive&&!p.protected);
-  openModal(`☠️ Éliminer — ${source}`,
-    players.map(p=>`<button class="m-opt red" onclick="window._kill('${p.id}','${source}');closeModal()">
-      ${p.avatar} ${esc(p.name)} <span style="font-size:.76rem;color:var(--smoke)">${p.role||''}</span>
-    </button>`).join('')
-  );
-}
+
 window._kill = (id,src)=>killPlayer(id,src);
 
-async function masterMayorModal(room){
-  const players = Object.values(room.players||{}).filter(p=>p.alive);
-  openModal('👑 Nommer le Maire',
-    players.map(p=>`<button class="m-opt" onclick="window._setMayor('${p.id}');closeModal()">
-      ${p.avatar} ${esc(p.name)}
-    </button>`).join('')
-  );
-}
 window._setMayor = async function(id){
   const room = await dbGet('rooms/'+roomCode);
   const upd={};
@@ -1085,17 +1114,6 @@ window._setMayor = async function(id){
   if(p) await pushLog(`👑 ${p.name} est élu Maire !`,'info');
 };
 
-function hostPlayerModal(p){
-  openModal(`${p.avatar} ${esc(p.name)}`,
-    `<p style="margin-bottom:10px;font-style:italic;color:var(--smoke);font-size:.86rem;">${ALL_ROLES[p.role]?.emoji} ${p.role} — ${ALL_ROLES[p.role]?.desc||''}</p>
-    <div class="m-opts">
-      ${p.alive?`<button class="m-opt red" onclick="window._kill('${p.id}','manuel');closeModal()">☠️ Éliminer</button>`
-                :`<button class="m-opt" onclick="window._revive('${p.id}');closeModal()">✨ Ressusciter</button>`}
-      <button class="m-opt" onclick="window._setMayor('${p.id}');closeModal()">👑 Nommer Maire</button>
-      <button class="m-opt" onclick="window._protect('${p.id}');closeModal()">🛡️ Protéger ce tour</button>
-    </div>`
-  );
-}
 window._revive = async function(id){
   await dbUpdate('rooms/'+roomCode+'/players/'+id,{alive:true});
   const r=await dbGet('rooms/'+roomCode+'/players/'+id);
@@ -1107,8 +1125,114 @@ window._protect = async function(id){
   if(r) await pushLog(`🛡️ ${r.name} est protégé(e) ce tour.`,'info');
 };
 
+
 // ================================================================
-// PLAYER ACTIONS
+// NEW ROLE ACTIONS
+// ================================================================
+async function infectModal(room){
+  const players=Object.values(room.players||{}).filter(p=>p.alive&&ALL_ROLES[p.role]?.camp!=='loup'&&p.id!==me.id);
+  if(room.game?.infectUsed) {openModal('🦠','<p style="color:var(--smoke);font-style:italic;">Pouvoir déjà utilisé cette partie.</p>');return;}
+  openModal('🦠 Loup Infectieux — Transformer',
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Au lieu de tuer, vous transformez cette personne en Loup-Garou !</p>`+
+    players.map(p=>`<button class="m-opt red" onclick="window._infect('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+  );
+}
+window._infect = async function(id){
+  const room=await dbGet('rooms/'+roomCode);
+  const p=room?.players?.[id];
+  if(!p) return;
+  await dbUpdate('rooms/'+roomCode+'/players/'+id,{role:'Loup-Garou'});
+  await dbUpdate('rooms/'+roomCode+'/game',{infectUsed:true});
+  await pushLog(`🦠 Le Loup Infectieux a agi… (résultat secret).`,'night');
+  pushNarr({fire:'🦠',color:'#c07040',title:'L\'Infection Se Répand',text:`Dans le silence de la nuit, quelqu'un a reçu la morsure transformatrice. Demain matin, le village comptera peut-être un loup de plus sans le savoir…`});
+};
+
+async function illusionModal(room){
+  const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
+  openModal('🪄 Illusionniste — Fausser',
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">La Voyante recevra une information erronée sur ce joueur cette nuit.</p>`+
+    players.map(p=>`<button class="m-opt purple" onclick="window._illuse('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+  );
+}
+window._illuse = async function(id){
+  await dbUpdate('rooms/'+roomCode+'/game',{illusionTarget:id});
+  await pushLog(`🪄 L'Illusionniste brouille les cartes…`,'night');
+};
+
+async function hypnoModal(room){
+  const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
+  openModal('🌀 Hypnotiseur — Cibler',
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Ce joueur sera forcé de voter contre lui-même (symbolique) demain.</p>`+
+    players.map(p=>`<button class="m-opt purple" onclick="window._hypno('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+  );
+}
+window._hypno = async function(id){
+  const room=await dbGet('rooms/'+roomCode);
+  const p=room?.players?.[id];
+  if(p) await pushLog(`🌀 L'Hypnotiseur contrôle ${p.name} pour le prochain vote.`,'night');
+};
+
+async function usurpModal(room){
+  const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
+  openModal('🎭 Usurpateur — Copier',
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Vous copiez temporairement le pouvoir de ce joueur.</p>`+
+    players.map(p=>`<button class="m-opt purple" onclick="window._usurp('${p.id}');closeModal()">${p.avatar} ${esc(p.name)} <span style="font-size:.76rem;color:var(--smoke)">${ALL_ROLES[p.role]?.emoji} ${p.role}</span></button>`).join('')
+  );
+}
+window._usurp = async function(id){
+  const room=await dbGet('rooms/'+roomCode);
+  const p=room?.players?.[id];
+  if(p){
+    const rd=ALL_ROLES[p.role];
+    openModal('🎭 Pouvoir Copié',`<div style="text-align:center;padding:16px;">
+      <div style="font-size:2rem;">${rd?.emoji||'?'}</div>
+      <div style="font-family:'Cinzel Decorative',serif;margin-top:8px;">${p.role}</div>
+      <div style="color:var(--smoke);font-size:.83rem;margin-top:6px;font-style:italic;">${rd?.desc||''}</div>
+      <div style="color:var(--ember2);font-size:.8rem;margin-top:10px;">Pouvoir actif pour ce tour uniquement.</div>
+    </div>`);
+    await pushLog(`🎭 L'Usurpateur a copié un pouvoir secret.`,'night');
+  }
+};
+
+async function puppetModal(room){
+  const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
+  openModal('🧵 Marionnettiste — Contrôler',
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Ce joueur effectuera une action que vous choisissez à sa place.</p>`+
+    players.map(p=>`<button class="m-opt purple" onclick="window._puppet('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+  );
+}
+window._puppet = async function(id){
+  const room=await dbGet('rooms/'+roomCode);
+  const p=room?.players?.[id];
+  if(p) await pushLog(`🧵 Le Marionnettiste tire ses fils sur ${p.name}…`,'night');
+};
+
+async function advocateModal(room){
+  const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
+  openModal('⚖️ Avocat — Protéger du vote',
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Ce joueur ne pourra pas être éliminé par vote aujourd\'hui.</p>`+
+    players.map(p=>`<button class="m-opt" onclick="window._protect('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+  );
+}
+
+async function hunterModal(room){
+  const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
+  const myP=Object.values(room.players||{}).find(p=>p.id===me.id);
+  if(myP?.alive){openModal('🏹','<p style="color:var(--smoke);font-style:italic;">Vous n\'êtes pas encore éliminé(e). Ce pouvoir s\'active à votre mort.</p>');return;}
+  openModal('🏹 Chasseur — Dernier Tir',
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Vous emportez quelqu\'un avec vous !</p>`+
+    players.map(p=>`<button class="m-opt red" onclick="window._kill('${p.id}','chasseur');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+  );
+}
+
+async function mayorPassModal(room){
+  const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
+  openModal('👑 Passer la Couronne',
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Désignez votre successeur comme Maire.</p>`+
+    players.map(p=>`<button class="m-opt" onclick="window._setMayor('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+  );
+}
+
 // ================================================================
 async function seerModal(room){
   const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
@@ -1117,21 +1241,36 @@ async function seerModal(room){
   );
 }
 window._seer = async function(id){
+  const room=await dbGet('rooms/'+roomCode);
   const p=await dbGet('rooms/'+roomCode+'/players/'+id);
   if(!p) return;
-  const rd=ALL_ROLES[p.role];
+  // Check if illusionist has faked this player
+  const illusionTarget = room?.game?.illusionTarget;
+  let displayRole = p.role;
+  let faked = false;
+  if(illusionTarget === id){
+    // Show a random wrong role from a different camp
+    const allRoleNames = Object.keys(ALL_ROLES);
+    const myRoleData = ALL_ROLES[p.role];
+    const otherRoles = allRoleNames.filter(r=>ALL_ROLES[r].camp !== myRoleData?.camp);
+    displayRole = otherRoles[Math.floor(Math.random()*otherRoles.length)] || p.role;
+    faked = true;
+    await dbUpdate('rooms/'+roomCode+'/game',{illusionTarget:null});
+  }
+  const rd=ALL_ROLES[displayRole];
   openModal('🔮 Révélation',`<div style="text-align:center;padding:18px;">
     <div style="font-size:2.5rem;margin-bottom:9px;">${rd?.emoji||'❓'}</div>
     <div style="font-family:'Cinzel Decorative',serif;font-size:.95rem;">${esc(p.name)}</div>
-    <div style="font-size:.82rem;color:var(--smoke);margin-top:5px;font-style:italic;">${rd?.emoji} ${p.role}</div>
+    <div style="font-size:.82rem;color:var(--smoke);margin-top:5px;font-style:italic;">${rd?.emoji} ${displayRole}</div>
     <div style="font-size:.79rem;color:var(--smoke);margin-top:4px;">${rd?.desc||''}</div>
+    ${faked?'<div style="font-size:.72rem;color:#c0a0ff;margin-top:8px;font-style:italic;">⚠️ Cette vision pourrait être altérée…</div>':''}
   </div>`);
 };
 
 async function voteModal(room){
   const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
   openModal('⚖️ Voter pour éliminer',
-    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">L'hôte finalise l'élimination.</p>`+
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Votre vote sera enregistré et visible de tous dans le chat.</p>`+
     players.map(p=>`<button class="m-opt red" onclick="window._vote('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
   );
 }
@@ -1183,7 +1322,7 @@ window._witchDeath = async function(id){
   const p=await dbGet('rooms/'+roomCode+'/players/'+id);
   if(p){
     await pushLog(`☠️ La Sorcière a tué ${p.name} !`,'death');
-    queueNarr({fire:'🧪',color:'#e07070',title:'Le Poison Frappe',text:`Dans le silence de la nuit, la Sorcière a levé son flacon de mort. ${p.name} n'a pas eu le temps de comprendre ce qui se passait. Le poison a fait son œuvre en quelques secondes.`});
+    pushNarr({fire:'🧪',color:'#e07070',title:'Le Poison Frappe',text:`Dans le silence de la nuit, la Sorcière a levé son flacon de mort. ${p.name} n'a pas eu le temps de comprendre ce qui se passait. Le poison a fait son œuvre en quelques secondes.`});
     await checkVictory();
   }
 };
@@ -1206,7 +1345,7 @@ async function chronoAction(){
   const g=await dbGet('rooms/'+roomCode+'/game');
   await dbUpdate('rooms/'+roomCode+'/game',{turn:Math.max(1,(g?.turn||1)-1),chronoUsed:true});
   await pushLog('⏳ Le Chronomancien rembobine le temps ! Le tour est rejoué.','chaos');
-  queueNarr({fire:'⏳',color:'#a0c0ff',title:'Le Temps Rembobine',text:'Un frisson étrange parcourt le village. Les ombres reculent. Quelques instants s\'effacent comme s\'ils n\'avaient jamais existé. Le Chronomancien sourit en rangeant son sablier.'});
+  pushNarr({fire:'⏳',color:'#a0c0ff',title:'Le Temps Rembobine',text:'Un frisson étrange parcourt le village. Les ombres reculent. Quelques instants s\'effacent comme s\'ils n\'avaient jamais existé. Le Chronomancien sourit en rangeant son sablier.'});
 }
 
 async function necroModal(room){
@@ -1286,16 +1425,16 @@ async function checkVictory(){
     victory={type:'chaos',title:'💀 Personne ne survit',desc:'Le village s\'est auto-détruit. Ni loups ni villageois.',survivors:[],color:'#888888'};
   } else if(alive.length===2&&alive[0].lovers&&alive[1].lovers){
     victory={type:'lovers',title:'❤️ Les Amoureux Gagnent !',desc:`Ni le village ni les loups n'ont pu les séparer. Leur amour interdit a réécrit la légende.`,survivors:alive,color:'#f48fb1'};
-    queueNarr({fire:'❤️',color:'#f48fb1',title:'L\'Amour Triomphe',text:`Ils se sont battus contre tous. ${alive[0].name} et ${alive[1].name} survivent ensemble dans un monde qui les a combattus. Leur amour a vaincu les loups et le village.`});
+    pushNarr({fire:'❤️',color:'#f48fb1',title:'L\'Amour Triomphe',text:`Ils se sont battus contre tous. ${alive[0].name} et ${alive[1].name} survivent ensemble dans un monde qui les a combattus. Leur amour a vaincu les loups et le village.`});
   } else if(alive.length===1&&alive[0].role==='Loup Blanc'){
     victory={type:'white',title:'🤍 Le Loup Blanc Triomphe',desc:'Il a trahi tout le monde pour finir seul en vie.',survivors:alive,color:'#e0e0e0'};
-    queueNarr({fire:'🤍',color:'#e0e0e0',title:'Seul Survivant',text:`${alive[0].name} a tout planifié depuis le début. Loup parmi les loups, il a attendu le bon moment pour trahir tout le monde. Ce soir, il reste seul debout.`});
+    pushNarr({fire:'🤍',color:'#e0e0e0',title:'Seul Survivant',text:`${alive[0].name} a tout planifié depuis le début. Loup parmi les loups, il a attendu le bon moment pour trahir tout le monde. Ce soir, il reste seul debout.`});
   } else if(aliveLoup.length===0&&aliveVillage.length>0){
     victory={type:'village',title:'🌾 Le Village est Sauvé !',desc:'Chaque loup a été démasqué. Ce soir, les enfants dormiront sans peur.',survivors:alive,color:'#70d090'};
-    queueNarr({fire:'🌾',color:'#70d090',title:'La Lumière Triomphe',text:'Contre toute attente, les villageois ont trouvé la vérité. Chaque loup démasqué, chaque mensonge percé à jour. Ce soir, pour la première fois depuis des semaines, on peut dormir en paix.'});
+    pushNarr({fire:'🌾',color:'#70d090',title:'La Lumière Triomphe',text:'Contre toute attente, les villageois ont trouvé la vérité. Chaque loup démasqué, chaque mensonge percé à jour. Ce soir, pour la première fois depuis des semaines, on peut dormir en paix.'});
   } else if(aliveLoup.length>=aliveVillage.length){
     victory={type:'wolf',title:'🐺 Les Loups Triomphent !',desc:'Nuit après nuit, ils ont éliminé patiemment. La nuit ne finira jamais.',survivors:alive,color:'#e07070'};
-    queueNarr({fire:'🐺',color:'#e07070',title:'La Nuit Éternelle',text:'Ils ont gagné méthodiquement, nuit après nuit. Les villageois se sont querellés et trompés les uns les autres. À l\'aube, il ne reste que des loups sous peau humaine.'});
+    pushNarr({fire:'🐺',color:'#e07070',title:'La Nuit Éternelle',text:'Ils ont gagné méthodiquement, nuit après nuit. Les villageois se sont querellés et trompés les uns les autres. À l\'aube, il ne reste que des loups sous peau humaine.'});
   }
 
   if(victory){
@@ -1323,15 +1462,26 @@ function showVictory(v){
 window.backToWelcome = function(){
   if(unsubRoom) unsubRoom();
   if(timerInterval) clearInterval(timerInterval);
-  chatRendered=0; lastSeenLogLen=0; narrQueue=[]; narrActive=false;
+  chatRendered=0; lastSeenLogLen=0; lastSeenNarrLen=0; narrQueue=[]; narrActive=false;
   selectedRoles=new Set(['Loup-Garou','Villageois','Voyante']);
   showScreen('welcome');
 };
 
 // ================================================================
-// NARRATIVE
+// NARRATIVE — shared via Firebase
 // ================================================================
 function queueNarr(n){narrQueue.push(n);if(!narrActive)showNextNarr();}
+async function pushNarr(n){
+  const ts=Date.now();
+  await dbSet('rooms/'+roomCode+'/narr/'+ts+'_'+Math.random().toString(36).substr(2,4), {...n, ts});
+}
+function checkNewNarr(room){
+  const narrs = room.narr ? Object.values(room.narr).sort((a,b)=>a.ts-b.ts) : [];
+  if(narrs.length<=lastSeenNarrLen){return;}
+  // Show all new narrations
+  for(let i=lastSeenNarrLen;i<narrs.length;i++) queueNarr(narrs[i]);
+  lastSeenNarrLen=narrs.length;
+}
 function showNextNarr(){
   if(!narrQueue.length){narrActive=false;return;}
   narrActive=true;
