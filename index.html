@@ -739,16 +739,16 @@ const ALL_ROLES = {
   'Villageois':      {camp:'village',emoji:'👨‍🌾',desc:'Aucun pouvoir particulier. Votre seule arme : l\'observation, la logique et le vote. Trouvez les loups avant qu\'ils ne vous trouvent.'},
   'Voyante':         {camp:'village',emoji:'🔮', desc:'Chaque nuit, vous révélez le rôle exact d\'un joueur de votre choix. Guidez le village sans vous exposer.'},
   'Sorcière':        {camp:'village',emoji:'🧪', desc:'Vous possédez une potion de vie (ressuscite un mort) et une potion de mort (tue une cible). Chacune utilisable une seule fois.'},
-  'Chasseur':        {camp:'village',emoji:'🏹', desc:'Si vous êtes éliminé(e), vous pouvez immédiatement tuer un autre joueur. Votre mort n\'est jamais gratuite.'},
+  'Chasseur':        {camp:'village',emoji:'🏹', desc:'Quand vous êtes éliminé(e), vous DEVEZ immédiatement choisir une cible — tir obligatoire, impossible de refuser. Votre mort n'est jamais gratuite.'},
   'Cupidon':         {camp:'village',emoji:'💘', desc:'Au début de la partie, vous avez lié deux amoureux. Si l\'un meurt, l\'autre meurt aussi. Les amoureux peuvent gagner seuls.'},
-  'Garde du Corps':  {camp:'village',emoji:'🛡️', desc:'Chaque nuit, vous protégez un joueur contre une attaque. Si votre protégé devrait mourir, c\'est vous qui mourez à sa place.'},
+  'Garde du Corps':  {camp:'village',emoji:'🛡️', desc:'Chaque nuit, protégez un joueur (pas vous-même, pas la même personne 2 nuits d'affilée). Si votre protégé est attaqué ou voté, vous mourrez à sa place.'},
   'Dieu du Village': {camp:'village',emoji:'✨', desc:'Une fois dans la partie, vous pouvez annuler une élimination — de jour comme de nuit. Utilisez ce miracle au bon moment.'},
   'Nécromancien':    {camp:'village',emoji:'💀', desc:'Chaque nuit, choisissez un mort : un canal de chat privé s\'ouvre entre vous et son esprit pour cette nuit uniquement.'},
   'Chronomancien':   {camp:'village',emoji:'⏳', desc:'Une fois par partie, vous pouvez rembobiner un tour complet et rejouer les événements. Un pouvoir immense.'},
   'Illusionniste':   {camp:'neutre', emoji:'🪄', desc:'Vous pouvez modifier l\'information reçue par la Voyante. Rechargement : 2 ou 3 tours (aléatoire). Elle verra ce que vous voulez, pas la réalité.'},
   'Hypnotiseur':     {camp:'neutre', emoji:'🌀', desc:'Vous forcez un joueur à voter pour une cible précise lors du prochain vote. Rechargement : 2 ou 3 tours (aléatoire). Manipulation pure.'},
   'Usurpateur':      {camp:'neutre', emoji:'🎭', desc:'Vous choisissez un joueur et usurpez son rôle pour toute la partie. Son pouvoir devient le vôtre définitivement.'},
-  'Avocat':          {camp:'neutre', emoji:'⚖️', desc:'Vous protégez un joueur contre l\'élimination par vote. Votre client ne peut pas être éliminé ce tour.'},
+  'Avocat':          {camp:'neutre', emoji:'⚖️', desc:'Chaque jour, protégez un joueur contre le vote d'élimination. Rechargement : 2 ou 3 tours. Votre client ne peut pas être éliminé ce tour.'},
   'Traître':         {camp:'neutre', emoji:'🗡️', desc:'Vous commencez comme villageois, mais rejoindrez secrètement les loups plus tard dans la partie.'},
   'Marionnettiste':  {camp:'neutre', emoji:'🧵', desc:'Vous contrôlez secrètement les actions d\'un joueur pendant la nuit. Il agira selon votre volonté.'},
 };
@@ -1075,12 +1075,11 @@ function onRoomUpdate(room) {
   if(room.status==='playing'){
     if(!document.getElementById('game-screen').classList.contains('active')){
       showScreen('game');
-      renderMyRole(room);
       startTimerLoop();
     } else if(!timerInterval) {
-      // Restart timer after phase switch cleared it
       startTimerLoop();
     }
+    renderMyRole(room);
     updateGameView(room);
     renderChat(room);
     checkNewLogNarr(room);
@@ -1156,10 +1155,19 @@ function renderMyRole(room) {
   const rd = ALL_ROLES[myP.role];
   if(!rd) return;
   document.getElementById('r-em').textContent = rd.emoji;
-  document.getElementById('r-name').textContent = myP.role;
+  // If usurpateur has stolen a role, show the stolen role name clearly
+  if(myP.usurpedFrom && room.game?.usurpDone){
+    document.getElementById('r-name').textContent = myP.role + ' 🎭';
+  } else {
+    document.getElementById('r-name').textContent = myP.role;
+  }
   document.getElementById('r-camp').textContent = {loup:'⚔️ Camp des Loups',village:'🌾 Camp du Village',neutre:'🎭 Rôle Neutre'}[rd.camp];
   document.getElementById('r-camp').className = 'role-camp '+rd.camp;
   let desc = rd.desc;
+  // If this player is an Usurpateur who stole a role, replace desc entirely with stolen role's desc + origin note
+  if(myP.usurpedFrom && room.game?.usurpDone){
+    desc = rd.desc + `\n\n🎭 Rôle volé à ${myP.usurpedFrom} — ce pouvoir vous appartient définitivement.`;
+  }
   if(myP.lovers && room.game){
     const g = room.game;
     const loverId = g.loversA===me.id ? g.loversB : g.loversA;
@@ -1349,7 +1357,12 @@ function renderActions(room) {
       if(!g.witchDeathUsed) add('☠️ Potion de Mort','red',()=>witchDeathModal(room));
       else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'☠️ Potion de mort épuisée'}));
     }
-    if(role==='Garde du Corps')                add('🛡️ Protéger un joueur','green',()=>protectModal(room));
+    if(role==='Garde du Corps'){
+      const guardLastTurn = g.guardUsedTurn || 0;
+      const guardReady = !guardLastTurn || (g.turn||1) - guardLastTurn >= 2;
+      if(guardReady) add('🛡️ Protéger un joueur','green',()=>protectModal(room));
+      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🛡️ Protection en recharge… encore '+((guardLastTurn+2)-(g.turn||1))+' tour(s)'}));
+    }
     if(role==='Dieu du Village'){
       if(!g.godUsed) add('✨ Annuler une mort','purple',()=>godModal(room));
       else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'✨ Pouvoir divin déjà utilisé'}));
@@ -1384,7 +1397,6 @@ function renderActions(room) {
       if(pReady) add('🧵 Contrôler un joueur','purple',()=>puppetModal(room));
       else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🧵 Recharge… encore '+((pLastTurn+pCooldown)-(g.turn||1))+' nuit(s)'}));
     }
-    if(role==='Avocat')                        add('⚖️ Protéger du vote','',()=>advocateModal(room));
     if(role==='Loup aux Puces'&&!g.fleaUsed)   add('🐜 Infecter lentement','red',()=>fleaModal(room));
   } else {
     // DAY — vote system
@@ -1439,7 +1451,14 @@ function renderActions(room) {
       btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:`✅ Voté contre ${target?.name||'?'} — en attente des autres…`}));
     }
     if(role==='Dieu du Village'&&!g.godUsed) add('✨ Annuler une élim.','purple',()=>godModal(room));
-    if(role==='Maire'||p?.mayor) add('👑 Passer la couronne','',()=>mayorPassModal(room));
+    if(role==='Avocat'){
+      const advLastTurn = g.advocateUsedTurn || 0;
+      const advCooldown = g.advocateCooldownLength || 2;
+      const advReady = !advLastTurn || (g.turn||1) - advLastTurn >= advCooldown;
+      if(advReady) add('⚖️ Protéger du vote','purple',()=>advocateModal(room));
+      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'⚖️ Client protégé — recharge dans '+((advLastTurn+advCooldown)-(g.turn||1))+' tour(s)'}));
+    }
+    if(role==='Maire'||myP?.mayor) add('👑 Passer la couronne','',()=>mayorPassModal(room));
   }
 }
 
@@ -2279,6 +2298,37 @@ async function killPlayer(playerId, source){
   const room = await dbGet('rooms/'+roomCode);
   const p = room?.players?.[playerId];
   if(!p||!p.alive) return;
+
+  // Garde du Corps: if this player is protected AND a guard is watching them, guard dies instead
+  if(p.protected && room.game?.guardTarget === playerId){
+    // Find the Garde du Corps
+    const guard = Object.values(room.players||{}).find(q=>q.alive && q.role==='Garde du Corps');
+    if(guard){
+      // Clear protection and guardTarget
+      await dbUpdate('rooms/'+roomCode+'/game',{guardTarget:null, lastProtected:null});
+      await dbUpdate('rooms/'+roomCode+'/players/'+playerId,{protected:false});
+      // Kill the guard instead
+      await dbUpdate('rooms/'+roomCode+'/players/'+guard.id,{alive:false});
+      await pushLog(`🛡️ ${guard.name} se sacrifie pour sauver ${p.name} !`,'death');
+      if(audioEnabled) playDeathSound();
+      pushNarr({fire:'🛡️',color:'#60c090',title:'Le Sacrifice du Garde',text:`${guard.name} s'est interposé entre les ombres et ${p.name}. Il tombe, mais ${p.name} est sauf(e). Certains choisissent l'honneur jusqu'au bout.`});
+      // Check if guard was a lover
+      const g2 = room.game;
+      if(guard.lovers && g2){
+        const loverId = g2.loversA===guard.id ? g2.loversB : g2.loversA;
+        const lover = room.players?.[loverId];
+        if(lover&&lover.alive){
+          await dbUpdate('rooms/'+roomCode+'/players/'+loverId,{alive:false});
+          await pushLog(`❤️ ${lover.name} ne peut survivre à la mort de son amour et meurt aussi.`,'death');
+        }
+      }
+      if(guard.mayor) await pushLog(`👑 Le Maire est mort ! Désignez un nouveau maire.`,'system');
+      await checkVictory();
+      return;
+    }
+  }
+
+  // Normal protection (Avocat, Immunité, etc.) — just block
   if(p.protected){await pushLog(`🛡️ ${p.name} était protégé — l'attaque a échoué.`,'info');return;}
 
   await dbUpdate('rooms/'+roomCode+'/players/'+playerId,{alive:false});
@@ -2305,19 +2355,30 @@ async function killPlayer(playerId, source){
 
   // Chasseur: trigger shot on elimination
   if(p.role === 'Chasseur' && !room.game?.hunterUsed){
-    await dbUpdate('rooms/'+roomCode+'/game',{hunterUsed:true});
+    await dbUpdate('rooms/'+roomCode+'/game',{hunterUsed:true, hunterPending:playerId});
     pushNarr({fire:'🏹',color:'#a08040',title:'Le Dernier Tir du Chasseur',text:`${p.name} tombe… mais pas sans riposter. Le Chasseur peut encore choisir qui l'accompagne dans la mort. Son regard cherche une dernière cible dans la foule.`});
-    // Show modal for the hunter's player to pick a target
+    // Show mandatory modal for the hunter's player to pick a target
     if(me.id === playerId){
       const freshRoom = await dbGet('rooms/'+roomCode);
       const targets = Object.values(freshRoom.players||{}).filter(q=>q.alive&&q.id!==playerId);
       if(targets.length > 0){
         setTimeout(()=>{
-          openModal('🏹 Dernier Tir — Choisissez votre cible',
-            `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Vous êtes éliminé(e) mais votre flèche peut encore frapper !</p>`+
-            targets.map(t=>`<button class="m-opt red" onclick="window._kill('${t.id}','chasseur');closeModal()">${t.avatar} ${esc(t.name)}</button>`).join('')
-          );
+          // Non-dismissible modal: no close button, must pick
+          document.getElementById('m-title').textContent='🏹 Dernier Tir — Choisissez votre cible';
+          document.getElementById('m-body').innerHTML=`<div class="m-opts">
+            <p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Vous êtes éliminé(e) mais votre flèche doit frapper ! Choisissez obligatoirement une cible.</p>`+
+            targets.map(t=>`<button class="m-opt red" onclick="window._hunterShoot('${t.id}')">${t.avatar} ${esc(t.name)}</button>`).join('')+
+          `</div>`;
+          // Hide the close button temporarily
+          const closeBtn = document.querySelector('#modal-ov .m-close');
+          if(closeBtn) closeBtn.style.display='none';
+          document.getElementById('modal-ov').classList.add('open');
+          // Prevent closing by clicking backdrop
+          document.getElementById('modal-ov')._hunterLock = true;
         }, 2000);
+      } else {
+        // No targets, clear pending
+        await dbUpdate('rooms/'+roomCode+'/game',{hunterPending:null});
       }
     }
   }
@@ -2327,6 +2388,16 @@ async function killPlayer(playerId, source){
 
 
 window._kill = (id,src)=>killPlayer(id,src);
+
+window._hunterShoot = async function(targetId){
+  // Re-show close button and clear lock
+  const closeBtn = document.querySelector('#modal-ov .m-close');
+  if(closeBtn) closeBtn.style.display='';
+  document.getElementById('modal-ov')._hunterLock = false;
+  closeModal();
+  await dbUpdate('rooms/'+roomCode+'/game',{hunterPending:null});
+  await killPlayer(targetId,'chasseur');
+};
 
 window._setMayor = async function(id){
   const room = await dbGet('rooms/'+roomCode);
@@ -2598,7 +2669,7 @@ window._usurp = async function(id){
   const stolenRole = p.role;
   const rd = ALL_ROLES[stolenRole];
   // Change the Usurpateur's actual role in DB permanently
-  await dbUpdate('rooms/'+roomCode+'/players/'+me.id, {role: stolenRole});
+  await dbUpdate('rooms/'+roomCode+'/players/'+me.id, {role: stolenRole, usurpedFrom: p.name});
   await dbUpdate('rooms/'+roomCode+'/game', {usurpDone: true, usurpUsedTurn: g.turn||1});
   openModal('🎭 Rôle Usurpé !',`<div style="text-align:center;padding:16px;">
     <div style="font-size:2.5rem;">${rd?.emoji||'?'}</div>
@@ -2663,13 +2734,7 @@ window._puppet = async function(victimId, forcedTargetId){
 
 };
 
-async function advocateModal(room){
-  const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
-  openModal('⚖️ Avocat — Protéger du vote',
-    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Ce joueur ne pourra pas être éliminé par vote aujourd\'hui.</p>`+
-    players.map(p=>`<button class="m-opt" onclick="window._protect('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
-  );
-}
+async function advocateModal(room){\n  const g = room.game;\n  const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);\n  if(!players.length){openModal('⚖️','<p style=\"color:var(--smoke);font-style:italic;\">Aucune cible disponible.</p>');return;}\n  openModal('⚖️ Avocat — Protéger du vote',\n    `<p style=\"font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;\">Ce joueur ne pourra pas être éliminé par vote aujourd\\'hui.</p>`+\n    players.map(p=>`<button class=\"m-opt\" onclick=\"window._advocate('${p.id}');closeModal()\">${p.avatar} ${esc(p.name)}</button>`).join('')\n  );\n}\nwindow._advocate = async function(id){\n  const room = await dbGet('rooms/'+roomCode);\n  const g = room?.game;\n  const p = room?.players?.[id];\n  if(!p||!g) return;\n  const cooldown = Math.random()<0.5 ? 2 : 3;\n  await dbUpdate('rooms/'+roomCode+'/players/'+id,{protected:true});\n  await dbUpdate('rooms/'+roomCode+'/game',{advocateUsedTurn: g.turn||1, advocateCooldownLength: cooldown});\n  // no log — secret\n};
 
 async function hunterModal(room){
   const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
@@ -2874,11 +2939,46 @@ async function resolveVote(room){
     await dbUpdate('rooms/'+roomCode+'/game',{trapPlayer:null});
   }
 
-  // Kill or avocat protection
+  // Kill or avocat/guard protection
   if(p?.protected){
-    await pushLog(`🛡️ ${p.name} était protégé(e) — le vote n'a aucun effet !`, 'info');
-    pushNarr({fire:'⚖️',color:'#c8a050',title:'Le Village a Voté',
-      text:`La foule avait choisi. Mais au moment de la sentence, quelqu'un a brandi un acte de protection. ${p.name} reste en vie. Les visages se décomposent.`});
+    // Check if it's the Garde du Corps protecting this person (guard dies instead)
+    const freshRoom2 = await dbGet('rooms/'+roomCode);
+    const g2 = freshRoom2?.game;
+    if(g2?.guardTarget === eliminatedId){
+      const guard = Object.values(freshRoom2.players||{}).find(q=>q.alive && q.role==='Garde du Corps');
+      if(guard){
+        // Clear protection
+        await dbUpdate('rooms/'+roomCode+'/players/'+eliminatedId,{protected:false});
+        await dbUpdate('rooms/'+roomCode+'/game',{guardTarget:null});
+        // Guard dies in place of the voted player
+        await dbUpdate('rooms/'+roomCode+'/players/'+guard.id,{alive:false});
+        await pushLog(`🛡️ ${guard.name} s'est sacrifié pour sauver ${p.name} du vote du village !`,'death');
+        if(audioEnabled) playDeathSound();
+        pushNarr({fire:'🛡️',color:'#60c090',title:'Le Sacrifice du Garde',
+          text:`Au moment où la sentence allait tomber sur ${p.name}, ${guard.name} s'est levé et s'est interposé. "Pas aujourd'hui." Le Garde du Corps tombe à sa place. ${p.name} est libre.`});
+        // Check guard's lover
+        if(guard.lovers && g2){
+          const loverId = g2.loversA===guard.id ? g2.loversB : g2.loversA;
+          const lover = freshRoom2.players?.[loverId];
+          if(lover&&lover.alive){
+            await dbUpdate('rooms/'+roomCode+'/players/'+loverId,{alive:false});
+            await pushLog(`❤️ ${lover.name} ne peut survivre à la mort de son amour.`,'death');
+          }
+        }
+        if(guard.mayor) await pushLog(`👑 Le Maire est mort ! Désignez un nouveau maire.`,'system');
+        await checkVictory();
+      } else {
+        // Guard already dead, normal avocat-style protection
+        await pushLog(`🛡️ ${p.name} était protégé(e) — le vote n'a aucun effet !`, 'info');
+        pushNarr({fire:'⚖️',color:'#c8a050',title:'Le Village a Voté',
+          text:`La foule avait choisi. Mais au moment de la sentence, quelqu'un a brandi un acte de protection. ${p.name} reste en vie.`});
+      }
+    } else {
+      // Avocat or other protection — player is simply saved
+      await pushLog(`🛡️ ${p.name} était protégé(e) — le vote n'a aucun effet !`, 'info');
+      pushNarr({fire:'⚖️',color:'#c8a050',title:'Le Village a Voté',
+        text:`La foule avait choisi. Mais au moment de la sentence, quelqu'un a brandi un acte de protection. ${p.name} reste en vie. Les visages se décomposent.`});
+    }
   } else {
     pushNarr({fire:'⚖️',color:'#e0c070',title:'La Justice du Village',
       text:`Après les débats et les accusations, le village a tranché. ${p?.name} — les yeux cherchant encore un ami dans la foule — est conduit vers sa dernière demeure. Avait-il tort de vous faire confiance ?`});
@@ -2921,18 +3021,37 @@ window._wolfVote = async function(targetId){
 };
 
 async function protectModal(room){
-  const lastProtected = room.game?.lastProtected;
-  const players = Object.values(room.players||{}).filter(p=>p.alive && p.id!==lastProtected);
+  const g = room.game;
+  const lastProtected = g?.lastProtected;
+  const guardLastTurn = g?.guardUsedTurn || 0;
+  const currentTurn = g?.turn || 1;
+  // Cooldown: can only protect every 2 turns
+  if(guardLastTurn && currentTurn - guardLastTurn < 2){
+    const turnsLeft = 2 - (currentTurn - guardLastTurn);
+    openModal('🛡️ Garde du Corps',`<p style="color:var(--smoke);font-style:italic;">Vous devez attendre encore ${turnsLeft} tour(s) avant de pouvoir protéger à nouveau.</p>`);
+    return;
+  }
+  // Can't protect self, can't protect same person as last time
+  const players = Object.values(room.players||{}).filter(p=>p.alive && p.id!==me.id && p.id!==lastProtected);
   if(!players.length){
-    openModal('🛡️','<p style="color:var(--smoke);font-style:italic;">Vous ne pouvez pas protéger la même personne deux nuits consécutives.</p>');
+    openModal('🛡️','<p style="color:var(--smoke);font-style:italic;">Aucune cible disponible (vous ne pouvez pas vous protéger vous-même ni protéger la même personne deux nuits d\'affilée).</p>');
     return;
   }
   const lastP = lastProtected ? Object.values(room.players||{}).find(p=>p.id===lastProtected) : null;
   openModal('🛡️ Protéger un joueur',
     (lastP?`<p style="font-size:.78rem;color:var(--smoke);margin-bottom:8px;font-style:italic;">⚠️ Vous ne pouvez pas protéger ${esc(lastP.name)} deux nuits d'affilée.</p>`:'') +
-    players.map(p=>`<button class="m-opt green" onclick="window._protect('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+    `<p style="font-size:.78rem;color:var(--smoke);margin-bottom:8px;font-style:italic;">⚠️ Vous ne pouvez pas vous protéger vous-même.</p>` +
+    players.map(p=>`<button class="m-opt green" onclick="window._guardProtect('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
   );
 }
+window._guardProtect = async function(id){
+  const room = await dbGet('rooms/'+roomCode);
+  const g = room?.game;
+  if(!g) return;
+  await dbUpdate('rooms/'+roomCode+'/players/'+id,{protected:true});
+  await dbUpdate('rooms/'+roomCode+'/game',{lastProtected:id, guardTarget:id, guardUsedTurn:g.turn||1});
+  // no log — secret action
+};
 
 async function witchLifeModal(room){
   const players=Object.values(room.players||{}).filter(p=>!p.alive);
@@ -3274,8 +3393,13 @@ window.toggleSound = function(enabled){
   document.getElementById('m-body').innerHTML=`<div class="m-opts">${body}</div>`;
   document.getElementById('modal-ov').classList.add('open');
 };
-window.closeModal = function(){document.getElementById('modal-ov').classList.remove('open');};
-document.getElementById('modal-ov').addEventListener('click',e=>{if(e.target===document.getElementById('modal-ov'))closeModal();});
+window.closeModal = function(){
+  if(document.getElementById('modal-ov')._hunterLock) return; // Can't close during hunter shot
+  document.getElementById('modal-ov').classList.remove('open');
+};
+document.getElementById('modal-ov').addEventListener('click',e=>{
+  if(e.target===document.getElementById('modal-ov') && !document.getElementById('modal-ov')._hunterLock) closeModal();
+});
 
 </script>
 </body>
