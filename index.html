@@ -288,58 +288,149 @@ body{background:var(--dark);color:var(--moon);font-family:'EB Garamond',Georgia,
 .surv-row{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:.93rem;}
 .surv-row+.surv-row{border-top:1px solid rgba(232,213,163,.07);}
 
+
+#settings-btn{position:fixed;top:14px;right:14px;z-index:100;background:rgba(20,18,30,.85);border:1px solid rgba(232,213,163,.18);border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;cursor:pointer;transition:.25s;backdrop-filter:blur(6px);}
+#settings-btn:hover{transform:rotate(30deg);border-color:rgba(232,213,163,.4);}
+#settings-modal{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;}
+#settings-modal.open{display:flex;}
+.sbox{background:linear-gradient(135deg,var(--dark3),var(--dark2));border:1px solid rgba(232,213,163,.2);border-radius:18px;padding:0;width:94%;max-width:520px;overflow:hidden;max-height:88vh;display:flex;flex-direction:column;}
+.sbox-title{font-family:'Cinzel Decorative',serif;font-size:.9rem;text-align:center;margin-bottom:0;padding-top:4px;}
+
+.sbox-header{padding:20px 24px 0;flex-shrink:0;}
+.sbox-tabs{display:flex;gap:0;border-bottom:1px solid rgba(232,213,163,.12);margin-top:16px;}
+.sbox-tab{flex:1;padding:9px 4px;background:none;border:none;color:var(--smoke);font-family:'EB Garamond',serif;font-size:.88rem;cursor:pointer;transition:.2s;border-bottom:2px solid transparent;margin-bottom:-1px;}
+.sbox-tab.active{color:var(--moon);border-bottom-color:var(--blood);}
+.sbox-panel{display:none;overflow-y:auto;flex:1;}
+.sbox-panel.active{display:block;}
+.sbox-inner{padding:16px 24px 20px;}
+/* Settings panel */
+.sbox-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(232,213,163,.07);}
+.sbox-label{font-size:.9rem;color:var(--moon2);}
+.sbox-close{display:block;width:100%;margin-top:14px;background:rgba(232,213,163,.06);border:1px solid rgba(232,213,163,.15);color:var(--moon2);font-family:'EB Garamond',serif;font-size:.9rem;padding:9px;border-radius:8px;cursor:pointer;}
+/* Guide panel */
+.guide-section{margin-bottom:20px;}
+.guide-section-title{font-family:'Cinzel Decorative',serif;font-size:.72rem;letter-spacing:.08em;color:var(--smoke);text-transform:uppercase;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(232,213,163,.1);}
+.guide-camp{font-size:.7rem;letter-spacing:.06em;font-family:'Cinzel Decorative',serif;padding:2px 8px;border-radius:10px;display:inline-block;margin-bottom:10px;}
+.guide-camp.loup{background:rgba(180,40,40,.2);color:#e07070;border:1px solid rgba(180,40,40,.3);}
+.guide-camp.village{background:rgba(40,140,80,.15);color:#70c090;border:1px solid rgba(40,140,80,.25);}
+.guide-camp.neutre{background:rgba(120,80,180,.18);color:#b090e0;border:1px solid rgba(120,80,180,.28);}
+.guide-role{display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(232,213,163,.05);}
+.guide-role:last-child{border-bottom:none;}
+.guide-role-em{font-size:1.3rem;flex-shrink:0;width:28px;text-align:center;padding-top:1px;}
+.guide-role-body{}
+.guide-role-name{font-family:'Cinzel Decorative',serif;font-size:.7rem;color:var(--moon);margin-bottom:3px;}
+.guide-role-desc{font-size:.8rem;color:var(--smoke);line-height:1.45;}
+.guide-event{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid rgba(232,213,163,.05);}
+.guide-event:last-child{border-bottom:none;}
+.guide-event-icon{font-size:1.1rem;flex-shrink:0;width:24px;text-align:center;}
+.guide-event-body{}
+.guide-event-name{font-size:.82rem;color:var(--moon2);font-weight:600;margin-bottom:2px;}
+.guide-event-desc{font-size:.78rem;color:var(--smoke);line-height:1.4;}
+
+.sbox-label{font-size:.9rem;color:var(--moon2);}
+.sw{position:relative;width:44px;height:24px;display:inline-block;cursor:pointer;}
+.sw input{opacity:0;width:0;height:0;position:absolute;}
+.sw-track{position:absolute;inset:0;background:rgba(255,255,255,.1);border:1px solid rgba(232,213,163,.2);border-radius:12px;transition:.3s;}
+.sw input:checked+.sw-track{background:var(--blood);}
+.sw-knob{position:absolute;top:3px;left:3px;width:16px;height:16px;background:var(--moon);border-radius:50%;transition:.3s;pointer-events:none;}
+.sw input:checked~.sw-knob{transform:translateX(20px);}
+.sbox-close{display:block;width:100%;margin-top:16px;background:rgba(232,213,163,.06);border:1px solid rgba(232,213,163,.15);color:var(--moon2);font-family:'EB Garamond',serif;font-size:.9rem;padding:9px;border-radius:8px;cursor:pointer;}
 ::-webkit-scrollbar{width:4px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:rgba(232,213,163,.18);border-radius:3px;}
 .spinner{width:34px;height:34px;border:3px solid rgba(232,213,163,.12);border-top-color:var(--moon2);border-radius:50%;animation:spin .8s linear infinite;margin:18px auto;}
 @keyframes spin{to{transform:rotate(360deg)}}
-
-/* Settings button */
-#settings-btn{position:fixed;top:14px;right:14px;z-index:100;background:rgba(20,18,30,.85);border:1px solid rgba(232,213,163,.18);border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:1.15rem;cursor:pointer;transition:all .25s;backdrop-filter:blur(6px);}
-#settings-btn:hover{background:rgba(40,35,60,.95);border-color:rgba(232,213,163,.38);transform:rotate(30deg);}
-
-/* Settings modal overlay */
-#settings-modal{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;}
-#settings-modal.open{display:flex;}
-.settings-box{background:linear-gradient(135deg,var(--dark3),var(--dark2));border:1px solid rgba(232,213,163,.2);border-radius:18px;padding:28px 24px;width:90%;max-width:340px;animation:fadeUp .25s ease;}
-.settings-title{font-family:'Cinzel Decorative',serif;font-size:.95rem;text-align:center;margin-bottom:20px;color:var(--moon);}
-.settings-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(232,213,163,.07);}
-.settings-row:last-of-type{border-bottom:none;}
-.settings-label{font-size:.9rem;color:var(--moon2);display:flex;align-items:center;gap:8px;}
-/* Toggle switch */
-.toggle-switch{position:relative;width:44px;height:24px;cursor:pointer;}
-.toggle-switch input{opacity:0;width:0;height:0;}
-.toggle-track{position:absolute;inset:0;background:rgba(255,255,255,.1);border:1px solid rgba(232,213,163,.2);border-radius:12px;transition:all .3s;}
-.toggle-switch input:checked + .toggle-track{background:var(--blood);border-color:var(--blood2);}
-.toggle-knob{position:absolute;top:3px;left:3px;width:16px;height:16px;background:var(--moon);border-radius:50%;transition:transform .3s;box-shadow:0 1px 4px rgba(0,0,0,.3);}
-.toggle-switch input:checked ~ .toggle-knob{transform:translateX(20px);}
-.settings-close-btn{display:block;width:100%;margin-top:18px;background:rgba(232,213,163,.06);border:1px solid rgba(232,213,163,.15);color:var(--moon2);font-family:'EB Garamond',serif;font-size:.95rem;padding:10px;border-radius:9px;cursor:pointer;transition:all .2s;text-align:center;}
-.settings-close-btn:hover{background:rgba(232,213,163,.14);color:var(--moon);}
 </style>
 </head>
 <body>
-<div class="bg-stars"></div>
-<div class="bg-fog"></div>
-
-<!-- SETTINGS BUTTON -->
-<button id="settings-btn" onclick="openSettings()" title="Paramètres">⚙️</button>
-
-<!-- SETTINGS MODAL -->
-<div id="settings-modal">
-  <div class="settings-box">
-    <div class="settings-title">⚙️ Paramètres</div>
-    <div class="settings-row">
-      <div class="settings-label">🔊 Son du jeu</div>
-      <label class="toggle-switch">
-        <input type="checkbox" id="sound-toggle" checked onchange="toggleSound(this.checked)">
-        <div class="toggle-track"></div>
-        <div class="toggle-knob"></div>
-      </label>
+<button id="settings-btn" onclick="window.openSettings()">⚙️</button>
+<div id="settings-modal" onclick="if(event.target===this)window.closeSettings()">
+  <div class="sbox">
+    <div class="sbox-header">
+      <div class="sbox-title">⚙️ Loup-Garou</div>
+      <div class="sbox-tabs">
+        <button class="sbox-tab active" onclick="window.switchSettingsTab('settings')">Paramètres</button>
+        <button class="sbox-tab" onclick="window.switchSettingsTab('roles')">Rôles</button>
+        <button class="sbox-tab" onclick="window.switchSettingsTab('events')">Événements</button>
+      </div>
     </div>
-    <button class="settings-close-btn" onclick="closeSettings()">Fermer</button>
+
+    <!-- ONGLET PARAMÈTRES -->
+    <div class="sbox-panel active" id="stab-settings">
+      <div class="sbox-inner">
+        <div class="sbox-row"><span class="sbox-label">🔊 Son</span>
+          <label class="sw"><input type="checkbox" id="sound-toggle" checked onchange="window.toggleSound(this.checked)"><div class="sw-track"></div><div class="sw-knob"></div></label>
+        </div>
+        <button class="sbox-close" onclick="window.closeSettings()">Fermer</button>
+      </div>
+    </div>
+
+    <!-- ONGLET RÔLES -->
+    <div class="sbox-panel" id="stab-roles">
+      <div class="sbox-inner">
+        <div class="guide-section">
+          <div class="guide-section-title">Camp des Loups</div>
+          <div class="guide-role"><div class="guide-role-em">🐺</div><div class="guide-role-body"><div class="guide-role-name">Loup-Garou</div><div class="guide-role-desc">Chaque nuit, les loups choisissent ensemble une victime. Leur objectif : éliminer tous les villageois.</div></div></div>
+          <div class="guide-role"><div class="guide-role-em">🤍</div><div class="guide-role-body"><div class="guide-role-name">Loup Blanc</div><div class="guide-role-desc">Joue avec les loups… mais veut finir seul en vie. Il peut trahir les siens à tout moment.</div></div></div>
+          <div class="guide-role"><div class="guide-role-em">🔥</div><div class="guide-role-body"><div class="guide-role-name">Loup Enragé</div><div class="guide-role-desc">Une nuit sur trois, il tue deux joueurs au lieu d'un.</div></div></div>
+          <div class="guide-role"><div class="guide-role-em">🦠</div><div class="guide-role-body"><div class="guide-role-name">Loup Infectieux</div><div class="guide-role-desc">Une fois par partie, transforme sa cible en Loup-Garou au lieu de la tuer.</div></div></div>
+          <div class="guide-role"><div class="guide-role-em">🐜</div><div class="guide-role-body"><div class="guide-role-name">Loup aux Puces</div><div class="guide-role-desc">Infecte secrètement une cible. Après plusieurs tours, la victime devient Loup sans le savoir.</div></div></div>
+        </div>
+        <div class="guide-section">
+          <div class="guide-section-title">Camp du Village</div>
+          <div class="guide-role"><div class="guide-role-em">🧑</div><div class="guide-role-body"><div class="guide-role-name">Villageois</div><div class="guide-role-desc">Aucun pouvoir. Doit observer, analyser et voter intelligemment.</div></div></div>
+          <div class="guide-role"><div class="guide-role-em">🔮</div><div class="guide-role-body"><div class="guide-role-name">Voyante</div><div class="guide-role-desc">Chaque nuit, découvre le rôle exact d'un joueur… sauf si elle est manipulée.</div></div></div>
+          <div class="guide-role"><div class="guide-role-em">🧪</div><div class="guide-role-body"><div class="guide-role-name">Sorcière</div><div class="guide-role-desc">Possède une potion de vie et une potion de mort, utilisables une seule fois chacune.</div></div></div>
+          <div class="guide-role"><div class="guide-role-em">🏹</div><div class="guide-role-body"><div class="guide-role-name">Chasseur</div><div class="guide-role-desc">S'il est éliminé, il tire immédiatement sur un autre joueur — tir obligatoire.</div></div></div>
+          <div class="guide-role"><div class="guide-role-em">💘</div><div class="guide-role-body"><div class="guide-role-name">Cupidon</div><div class="guide-role-desc">Lie deux amoureux. Si l'un meurt, l'autre aussi. Les amoureux peuvent gagner seuls.</div></div></div>
+          <div class="guide-role"><div class="guide-role-em">🛡️</div><div class="guide-role-body"><div class="guide-role-name">Garde du Corps</div><div class="guide-role-desc">Protège un joueur chaque nuit. Si son protégé devrait mourir (attaque ou vote), le garde meurt à sa place.</div></div></div>
+          <div class="guide-role"><div class="guide-role-em">👑</div><div class="guide-role-body"><div class="guide-role-name">Maire</div><div class="guide-role-desc">Élu par les joueurs. Sa voix compte double lors des votes.</div></div></div>
+          <div class="guide-role"><div class="guide-role-em">✨</div><div class="guide-role-body"><div class="guide-role-name">Dieu du Village</div><div class="guide-role-desc">Une fois par partie, annule une élimination (jour ou nuit).</div></div></div>
+          <div class="guide-role"><div class="guide-role-em">💀</div><div class="guide-role-body"><div class="guide-role-name">Nécromancien</div><div class="guide-role-desc">Peut communiquer chaque nuit avec un mort pour obtenir des informations.</div></div></div>
+          <div class="guide-role"><div class="guide-role-em">⏳</div><div class="guide-role-body"><div class="guide-role-name">Chronomancien</div><div class="guide-role-desc">Une fois par partie, rembobine un tour complet et rejoue les événements.</div></div></div>
+        </div>
+        <div class="guide-section">
+          <div class="guide-section-title">Rôles Neutres &amp; Manipulateurs</div>
+          <div class="guide-role"><div class="guide-role-em">🪄</div><div class="guide-role-body"><div class="guide-role-name">Illusionniste</div><div class="guide-role-desc">Modifie l'identité révélée par la Voyante.</div></div></div>
+          <div class="guide-role"><div class="guide-role-em">🌀</div><div class="guide-role-body"><div class="guide-role-name">Hypnotiseur</div><div class="guide-role-desc">Force un joueur à voter pour une cible précise lors du prochain vote.</div></div></div>
+          <div class="guide-role"><div class="guide-role-em">🎭</div><div class="guide-role-body"><div class="guide-role-name">Usurpateur</div><div class="guide-role-desc">Vole définitivement le rôle d'un autre joueur et en hérite le pouvoir.</div></div></div>
+          <div class="guide-role"><div class="guide-role-em">⚖️</div><div class="guide-role-body"><div class="guide-role-name">Avocat</div><div class="guide-role-desc">Protège un joueur contre l'élimination par vote. Recharge toutes les 2–3 tours.</div></div></div>
+          <div class="guide-role"><div class="guide-role-em">🗡️</div><div class="guide-role-body"><div class="guide-role-name">Traître</div><div class="guide-role-desc">Commence comme villageois, mais rejoint secrètement les loups plus tard dans la partie.</div></div></div>
+          <div class="guide-role"><div class="guide-role-em">🧵</div><div class="guide-role-body"><div class="guide-role-name">Marionnettiste</div><div class="guide-role-desc">Contrôle secrètement les actions d'un joueur pendant la nuit.</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ONGLET ÉVÉNEMENTS -->
+    <div class="sbox-panel" id="stab-events">
+      <div class="sbox-inner">
+        <div class="guide-section">
+          <div class="guide-section-title">⚡ Événements Chaos</div>
+          <div class="guide-event"><div class="guide-event-icon">🌫️</div><div class="guide-event-body"><div class="guide-event-name">Brouillard</div><div class="guide-event-desc">Personne ne peut parler pendant une minute.</div></div></div>
+          <div class="guide-event"><div class="guide-event-icon">🤫</div><div class="guide-event-body"><div class="guide-event-name">Silence</div><div class="guide-event-desc">Un joueur est réduit au silence pour le tour.</div></div></div>
+          <div class="guide-event"><div class="guide-event-icon">🗳️</div><div class="guide-event-body"><div class="guide-event-name">Double Vote</div><div class="guide-event-desc">Tous les votes comptent double ce tour.</div></div></div>
+          <div class="guide-event"><div class="guide-event-icon">🔃</div><div class="guide-event-body"><div class="guide-event-name">Vote Inversé</div><div class="guide-event-desc">Le joueur avec le plus de votes est sauvé ; le moins voté est éliminé.</div></div></div>
+          <div class="guide-event"><div class="guide-event-icon">💀</div><div class="guide-event-body"><div class="guide-event-name">Deux Morts Cette Nuit</div><div class="guide-event-desc">Les loups éliminent deux victimes au lieu d'une.</div></div></div>
+          <div class="guide-event"><div class="guide-event-icon">🛡️</div><div class="guide-event-body"><div class="guide-event-name">Immunité Aléatoire</div><div class="guide-event-desc">Un joueur devient intouchable pour ce tour.</div></div></div>
+          <div class="guide-event"><div class="guide-event-icon">👻</div><div class="guide-event-body"><div class="guide-event-name">Retour des Morts</div><div class="guide-event-desc">Un joueur éliminé revient pour un tour.</div></div></div>
+          <div class="guide-event"><div class="guide-event-icon">👑</div><div class="guide-event-body"><div class="guide-event-name">Nouveau Maire</div><div class="guide-event-desc">Un maire temporaire est désigné aléatoirement ce tour.</div></div></div>
+          <div class="guide-event"><div class="guide-event-icon">💣</div><div class="guide-event-body"><div class="guide-event-name">Piège Explosif</div><div class="guide-event-desc">Un joueur est piégé. S'il est voté, il explose et tue deux autres joueurs au hasard.</div></div></div>
+        </div>
+        <div class="guide-section">
+          <div class="guide-section-title">🧠 Événements Stratégiques</div>
+          <div class="guide-event"><div class="guide-event-icon">👁️</div><div class="guide-event-body"><div class="guide-event-name">Voyante Aveuglée</div><div class="guide-event-desc">La Voyante reçoit une information fausse ou inutilisable cette nuit.</div></div></div>
+          <div class="guide-event"><div class="guide-event-icon">🧪</div><div class="guide-event-body"><div class="guide-event-name">Potion Retrouvée</div><div class="guide-event-desc">La Sorcière récupère une potion déjà utilisée.</div></div></div>
+          <div class="guide-event"><div class="guide-event-icon">⚔️</div><div class="guide-event-body"><div class="guide-event-name">Duel Obligatoire</div><div class="guide-event-desc">Deux joueurs s'affrontent ; le village vote pour en éliminer un des deux.</div></div></div>
+          <div class="guide-event"><div class="guide-event-icon">⏱️</div><div class="guide-event-body"><div class="guide-event-name">Débat Limité</div><div class="guide-event-desc">Seulement une minute pour discuter avant le vote.</div></div></div>
+          <div class="guide-event"><div class="guide-event-icon">🚫</div><div class="guide-event-body"><div class="guide-event-name">Discussions Interdites</div><div class="guide-event-desc">Vote immédiat sans débat possible.</div></div></div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
-
+<div class="bg-stars"></div>
+<div class="bg-fog"></div>
 <div id="app">
 
 <!-- WELCOME -->
@@ -508,6 +599,44 @@ body{background:var(--dark);color:var(--moon);font-family:'EB Garamond',Georgia,
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, set, get, onValue, update } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+window._fb = { initializeApp, getDatabase, ref, set, get, onValue, update };
+window.dispatchEvent(new CustomEvent('firebaseLoaded'));
+</script>
+<script>
+// Fonctions UI définies immédiatement (avant Firebase)
+window.showScreen = function(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const scr = document.getElementById(name+'-screen');
+  if(scr) scr.classList.add('active');
+};
+window.closeModal = function(){
+  const ov = document.getElementById('modal-ov');
+  if(ov && ov._hunterLock) return;
+  if(ov) ov.classList.remove('open');
+};
+window.closeNarr = function(){
+  const n = document.getElementById('narr');
+  if(n) n.classList.remove('show');
+};
+window.openSettings = function(){ document.getElementById('settings-modal').classList.add('open'); };
+window.closeSettings = function(){ document.getElementById('settings-modal').classList.remove('open'); };
+window.switchSettingsTab = function(tab){
+  const tabs = ['settings','roles','events'];
+  document.querySelectorAll('.sbox-tab').forEach((t,i)=>t.classList.toggle('active', tabs[i]===tab));
+  document.querySelectorAll('.sbox-panel').forEach(p=>p.classList.remove('active'));
+  const panel = document.getElementById('stab-'+tab);
+  if(panel) panel.classList.add('active');
+};
+window.toggleSound = function(on){
+  if(typeof audioEnabled !== 'undefined') {
+    audioEnabled = on;
+    if(on){ if(typeof getAudioCtx==='function') getAudioCtx(); }
+    else { if(typeof stopAmbient==='function') stopAmbient(); }
+  }
+};
+
+window.addEventListener('firebaseLoaded', function() {
+
 
 // ================================================================
 // 🔊 SOUND ENGINE (Web Audio API — no external files)
@@ -600,7 +729,6 @@ function playGameStart(){
 
 // 🌀 Sound: event triggered (eerie, chaotic)
 function playEventSound(){
-  if(!audioEnabled) return;
   const ctx = getAudioCtx();
   // Glitchy dissonant hit
   const dissonant = [311, 370, 415, 466];
@@ -687,32 +815,12 @@ function playLoversVictorySound(){
 }
 
 // Enable audio on first interaction
-let audioEnabled = true; // enabled by default, user can toggle
-function enableAudio(){
-  getAudioCtx();
-  startAmbient();
-}
-document.addEventListener('click', function onFirstClick(){
-  getAudioCtx();
-  if(audioEnabled && !ambientSource) startAmbient();
-  document.removeEventListener('click', onFirstClick);
-}, {once:true});
-document.addEventListener('keydown', function onFirstKey(){
-  getAudioCtx();
-  if(audioEnabled && !ambientSource) startAmbient();
-  document.removeEventListener('keydown', onFirstKey);
-}, {once:true});
+let audioEnabled = true;
+function enableAudio(){ getAudioCtx(); if(audioEnabled&&!ambientSource) startAmbient(); }
+document.addEventListener('click', enableAudio, {once:true});
+document.addEventListener('keydown', enableAudio, {once:true});
 
-// Override showScreen to manage ambient
-// Note: showScreen is defined later; we patch it after definition via a wrapper approach
-function _manageAmbientOnScreen(name){
-  if(name==='welcome'||name==='lobby'||name==='create'||name==='join'){
-    if(audioEnabled && !ambientSource) startAmbient();
-  } else if(name==='game'){
-    stopAmbient();
-  }
-}
-const _origShowScreen = null; // will be patched after showScreen is defined
+// (ambient géré dans showScreen ci-dessous)
 
 // ================================================================
 // 🔥 REMPLACEZ LES VALEURS CI-DESSOUS PAR VOTRE CONFIG FIREBASE
@@ -739,16 +847,16 @@ const ALL_ROLES = {
   'Villageois':      {camp:'village',emoji:'👨‍🌾',desc:'Aucun pouvoir particulier. Votre seule arme : l\'observation, la logique et le vote. Trouvez les loups avant qu\'ils ne vous trouvent.'},
   'Voyante':         {camp:'village',emoji:'🔮', desc:'Chaque nuit, vous révélez le rôle exact d\'un joueur de votre choix. Guidez le village sans vous exposer.'},
   'Sorcière':        {camp:'village',emoji:'🧪', desc:'Vous possédez une potion de vie (ressuscite un mort) et une potion de mort (tue une cible). Chacune utilisable une seule fois.'},
-  'Chasseur':        {camp:'village',emoji:'🏹', desc:'Quand vous êtes éliminé(e), vous DEVEZ immédiatement choisir une cible — tir obligatoire, impossible de refuser. Votre mort n'est jamais gratuite.'},
+  'Chasseur':        {camp:'village',emoji:'🏹', desc:'Si vous êtes éliminé(e), vous pouvez immédiatement tuer un autre joueur. Votre mort n\'est jamais gratuite.'},
   'Cupidon':         {camp:'village',emoji:'💘', desc:'Au début de la partie, vous avez lié deux amoureux. Si l\'un meurt, l\'autre meurt aussi. Les amoureux peuvent gagner seuls.'},
-  'Garde du Corps':  {camp:'village',emoji:'🛡️', desc:'Chaque nuit, protégez un joueur (pas vous-même, pas la même personne 2 nuits d'affilée). Si votre protégé est attaqué ou voté, vous mourrez à sa place.'},
+  'Garde du Corps':  {camp:'village',emoji:'🛡️', desc:'Chaque nuit, vous protégez un joueur contre une attaque. Si votre protégé devrait mourir, c\'est vous qui mourez à sa place.'},
   'Dieu du Village': {camp:'village',emoji:'✨', desc:'Une fois dans la partie, vous pouvez annuler une élimination — de jour comme de nuit. Utilisez ce miracle au bon moment.'},
   'Nécromancien':    {camp:'village',emoji:'💀', desc:'Chaque nuit, choisissez un mort : un canal de chat privé s\'ouvre entre vous et son esprit pour cette nuit uniquement.'},
   'Chronomancien':   {camp:'village',emoji:'⏳', desc:'Une fois par partie, vous pouvez rembobiner un tour complet et rejouer les événements. Un pouvoir immense.'},
   'Illusionniste':   {camp:'neutre', emoji:'🪄', desc:'Vous pouvez modifier l\'information reçue par la Voyante. Rechargement : 2 ou 3 tours (aléatoire). Elle verra ce que vous voulez, pas la réalité.'},
   'Hypnotiseur':     {camp:'neutre', emoji:'🌀', desc:'Vous forcez un joueur à voter pour une cible précise lors du prochain vote. Rechargement : 2 ou 3 tours (aléatoire). Manipulation pure.'},
   'Usurpateur':      {camp:'neutre', emoji:'🎭', desc:'Vous choisissez un joueur et usurpez son rôle pour toute la partie. Son pouvoir devient le vôtre définitivement.'},
-  'Avocat':          {camp:'neutre', emoji:'⚖️', desc:'Chaque jour, protégez un joueur contre le vote d'élimination. Rechargement : 2 ou 3 tours. Votre client ne peut pas être éliminé ce tour.'},
+  'Avocat':          {camp:'neutre', emoji:'⚖️', desc:'Vous protégez un joueur contre l\'élimination par vote. Votre client ne peut pas être éliminé ce tour.'},
   'Traître':         {camp:'neutre', emoji:'🗡️', desc:'Vous commencez comme villageois, mais rejoindrez secrètement les loups plus tard dans la partie.'},
   'Marionnettiste':  {camp:'neutre', emoji:'🧵', desc:'Vous contrôlez secrètement les actions d\'un joueur pendant la nuit. Il agira selon votre volonté.'},
 };
@@ -812,8 +920,8 @@ let localRoom = null; // cached room for timer
         </div>`;
       return;
     }
-    const app = initializeApp(FIREBASE_CONFIG);
-    db = getDatabase(app);
+    const app = window._fb.initializeApp(FIREBASE_CONFIG);
+    db = window._fb.getDatabase(app);
     console.log('✅ Firebase connecté');
   } catch(e) {
     console.error('Firebase init failed:', e);
@@ -835,11 +943,11 @@ function genId() { return Math.random().toString(36).substr(2,9) + Date.now().to
 function genCode() { return String(Math.floor(100000 + Math.random() * 900000)); }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-function dbRef(path) { return ref(db, path); }
-async function dbSet(path, val) { await set(dbRef(path), val); }
-async function dbUpdate(path, val) { await update(dbRef(path), val); }
-async function dbGet(path) { const s = await get(dbRef(path)); return s.exists() ? s.val() : null; }
-function dbListen(path, cb) { return onValue(dbRef(path), snap => cb(snap.exists() ? snap.val() : null)); }
+function dbRef(path) { return window._fb.ref(db, path); }
+async function dbSet(path, val) { await window._fb.set(dbRef(path), val); }
+async function dbUpdate(path, val) { await window._fb.update(dbRef(path), val); }
+async function dbGet(path) { const s = await window._fb.get(dbRef(path)); return s.exists() ? s.val() : null; }
+function dbListen(path, cb) { return window._fb.onValue(dbRef(path), snap => cb(snap.exists() ? snap.val() : null)); }
 
 // ================================================================
 // SCREENS
@@ -847,7 +955,9 @@ function dbListen(path, cb) { return onValue(dbRef(path), snap => cb(snap.exists
 window.showScreen = function(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(name+'-screen').classList.add('active');
-  _manageAmbientOnScreen(name);
+  if(name==='welcome'||name==='lobby'||name==='create'||name==='join'){
+    if(audioEnabled && !ambientSource) startAmbient();
+  } else if(name==='game'){ stopAmbient(); }
 };
 
 function buildAvatarPicker(id, onSel, defVal) {
@@ -1019,7 +1129,7 @@ window.launchGame = async function() {
   shuffledPlayers.forEach((p,i)=>{
     playerUpdates['rooms/'+roomCode+'/players/'+p.id+'/role'] = shuffledRoles[i%shuffledRoles.length];
   });
-  await update(ref(db), playerUpdates);
+  await window._fb.update(window._fb.ref(db), playerUpdates);
 
   // Reload with roles
   const updatedRoom = await dbGet('rooms/'+roomCode);
@@ -1074,11 +1184,8 @@ function onRoomUpdate(room) {
 
   if(room.status==='playing'){
     if(!document.getElementById('game-screen').classList.contains('active')){
-      showScreen('game');
-      startTimerLoop();
-    } else if(!timerInterval) {
-      startTimerLoop();
-    }
+      showScreen('game'); startTimerLoop();
+    } else if(!timerInterval) { startTimerLoop(); }
     renderMyRole(room);
     updateGameView(room);
     renderChat(room);
@@ -1155,18 +1262,13 @@ function renderMyRole(room) {
   const rd = ALL_ROLES[myP.role];
   if(!rd) return;
   document.getElementById('r-em').textContent = rd.emoji;
-  // If usurpateur has stolen a role, show the stolen role name clearly
-  if(myP.usurpedFrom && room.game?.usurpDone){
-    document.getElementById('r-name').textContent = myP.role + ' 🎭';
-  } else {
-    document.getElementById('r-name').textContent = myP.role;
-  }
+  document.getElementById('r-name').textContent = myP.role;
   document.getElementById('r-camp').textContent = {loup:'⚔️ Camp des Loups',village:'🌾 Camp du Village',neutre:'🎭 Rôle Neutre'}[rd.camp];
   document.getElementById('r-camp').className = 'role-camp '+rd.camp;
   let desc = rd.desc;
-  // If this player is an Usurpateur who stole a role, replace desc entirely with stolen role's desc + origin note
   if(myP.usurpedFrom && room.game?.usurpDone){
-    desc = rd.desc + `\n\n🎭 Rôle volé à ${myP.usurpedFrom} — ce pouvoir vous appartient définitivement.`;
+    document.getElementById('r-name').textContent = myP.role+' 🎭';
+    desc = rd.desc+'\n\n🎭 Volé à '+myP.usurpedFrom;
   }
   if(myP.lovers && room.game){
     const g = room.game;
@@ -1225,8 +1327,8 @@ function renderActions(room) {
       .map(([id,v])=>{ const p=players.find(x=>x.id===id); return `${p?.avatar||''} ${p?.name||'?'} <strong style="color:var(--moon)">${v} vote${v>1?'s':''}</strong>`; })
       .join(' &nbsp;·&nbsp; ');
     const votedCount = Object.keys(mayorVotes).length;
-    const alive = players.filter(p=>p.alive);
-    const aliveCount = alive.length;
+    const aliveMayor=players.filter(p=>p.alive);
+    const aliveCount = aliveMayor.length;
     const pct = aliveCount>0 ? Math.round(votedCount/aliveCount*100) : 0;
 
     btns.innerHTML = `
@@ -1246,22 +1348,15 @@ function renderActions(room) {
     </div>`;
 
     if(!myMayorVote){
-      // Check if all alive have voted already (race condition UI)
-      const allVoted = alive.length > 0 && alive.every(p=>votes[p.id]);
-      if(allVoted){
-        btns.innerHTML += `<div class="a-used" style="color:var(--moon);text-align:center;">🏁 Tous les joueurs ont voté — résolution en cours…</div>`;
-      } else {
-        // Show candidate buttons
-        const candidates = players.filter(p=>p.alive);
-        candidates.forEach(p=>{
-          const btn = document.createElement('button');
-          btn.className = 'a-btn';
-          btn.style.cssText = 'background:rgba(180,140,30,.15);border-color:rgba(200,160,50,.3);color:var(--moon);margin-bottom:4px;';
-          btn.innerHTML = `${p.avatar} ${esc(p.name)}${p.id===myP.id?' (moi)':''}`;
-          btn.onclick = () => voteForMayor(p.id);
-          btns.appendChild(btn);
-        });
-      }
+      if(aliveMayor.every(p=>mayorVotes[p.id])){
+        btns.innerHTML+=`<div class="a-used" style="text-align:center">🏁 Tous ont voté — résolution…</div>`;
+      } else { const candidates=players.filter(p=>p.alive); candidates.forEach(p=>{
+        const btn = document.createElement('button');
+        btn.className = 'a-btn';
+        btn.style.cssText = 'background:rgba(180,140,30,.15);border-color:rgba(200,160,50,.3);color:var(--moon);margin-bottom:4px;';
+        btn.innerHTML = `${p.avatar} ${esc(p.name)}${p.id===myP.id?' (moi)':''}`;
+        btn.onclick = () => voteForMayor(p.id);
+        btns.appendChild(btn); }); }
     } else {
       const voted = players.find(p=>p.id===myMayorVote);
       btns.innerHTML += `<div class="a-used" style="color:var(--moon);">✅ Voté pour ${voted?.avatar||''} ${esc(voted?.name||'?')} — en attente des autres…</div>`;
@@ -1338,7 +1433,7 @@ function renderActions(room) {
       if(!g.wolfVotes?.[me.id]) add('🐺 Désigner la victime','red',()=>wolfVoteModal(room));
       else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🐺 Cible désignée — attendez le résultat'}));
     }
-    if(role==='Loup Enragé' && (g.turn % 3 === 0) && !g.wolfVotes?.[me.id])
+    if(role==='Loup Enragé'&&(g.turn%3===0)&&!g.wolfVotes?.[me.id])
       add('🔥 Nuit enragée — tuer 2 cibles','red',()=>wolfRageModal(room));
     if(role==='Loup Infectieux'){
       if(!g.wolfVotes?.[me.id]) add('🐺 Désigner la victime','red',()=>wolfVoteModal(room));
@@ -1357,12 +1452,7 @@ function renderActions(room) {
       if(!g.witchDeathUsed) add('☠️ Potion de Mort','red',()=>witchDeathModal(room));
       else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'☠️ Potion de mort épuisée'}));
     }
-    if(role==='Garde du Corps'){
-      const guardLastTurn = g.guardUsedTurn || 0;
-      const guardReady = !guardLastTurn || (g.turn||1) - guardLastTurn >= 2;
-      if(guardReady) add('🛡️ Protéger un joueur','green',()=>protectModal(room));
-      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🛡️ Protection en recharge… encore '+((guardLastTurn+2)-(g.turn||1))+' tour(s)'}));
-    }
+    if(role==='Garde du Corps')                add('🛡️ Protéger un joueur','green',()=>protectModal(room));
     if(role==='Dieu du Village'){
       if(!g.godUsed) add('✨ Annuler une mort','purple',()=>godModal(room));
       else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'✨ Pouvoir divin déjà utilisé'}));
@@ -1452,11 +1542,9 @@ function renderActions(room) {
     }
     if(role==='Dieu du Village'&&!g.godUsed) add('✨ Annuler une élim.','purple',()=>godModal(room));
     if(role==='Avocat'){
-      const advLastTurn = g.advocateUsedTurn || 0;
-      const advCooldown = g.advocateCooldownLength || 2;
-      const advReady = !advLastTurn || (g.turn||1) - advLastTurn >= advCooldown;
-      if(advReady) add('⚖️ Protéger du vote','purple',()=>advocateModal(room));
-      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'⚖️ Client protégé — recharge dans '+((advLastTurn+advCooldown)-(g.turn||1))+' tour(s)'}));
+      const aLT=g.advocateUsedTurn||0,aCD=g.advocateCooldownLength||2;
+      if(!aLT||(g.turn||1)-aLT>=aCD) add('⚖️ Protéger du vote','purple',()=>advocateModal(room));
+      else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'⚖️ Recharge dans '+((aLT+aCD)-(g.turn||1))+' tour(s)'}));
     }
     if(role==='Maire'||myP?.mayor) add('👑 Passer la couronne','',()=>mayorPassModal(room));
   }
@@ -1636,7 +1724,7 @@ async function resolveMayorElection(){
   upd['rooms/'+roomCode+'/players/'+electedId+'/mayor'] = true;
   upd['rooms/'+roomCode+'/game/mayorElected'] = true;
   upd['rooms/'+roomCode+'/game/mayorVotes'] = null;
-  await update(ref(db), upd);
+  await window._fb.update(window._fb.ref(db), upd);
 
   await pushLog(`👑 ${elected.name} est élu(e) Maire du village !`, 'system');
   pushNarr({fire:'👑',color:'#d4a017',title:'Le Village a Parlé',
@@ -1697,7 +1785,7 @@ async function switchPhase(newPhase){
     updates['rooms/'+roomCode+'/game/trapPlayer'] = null;
     updates['rooms/'+roomCode+'/game/currentEvent'] = null;
   }
-  await update(ref(db), updates);
+  await window._fb.update(window._fb.ref(db), updates);
   const turn = newPhase==='night' ? (g.turn||1)+1 : g.turn;
   if(newPhase==='night'){
     await pushLog(`🌑 — Nuit ${turn} — Les loups se réveillent.`,'night');
@@ -2177,7 +2265,7 @@ async function applyEvent(ev){
     const upd={};
     players.forEach(p=>{upd['rooms/'+roomCode+'/players/'+p.id+'/mayor']=false;});
     upd['rooms/'+roomCode+'/players/'+t.id+'/mayor']=true;
-    await update(ref(db),upd);
+    await window._fb.update(window._fb.ref(db),upd);
     await pushLog(`👑 ${t.name} est désigné(e) Maire par le destin — son vote compte double aujourd\'hui !`,'chaos');
     pushNarr({fire:'👑',color:'#d4a017',title:'Un Nouveau Maire',
       text:`Le destin a posé sa couronne sur la tête de ${t.name}. Ce titre ne durera qu'un jour — mais une voix qui compte double peut tout changer.`});
@@ -2298,38 +2386,23 @@ async function killPlayer(playerId, source){
   const room = await dbGet('rooms/'+roomCode);
   const p = room?.players?.[playerId];
   if(!p||!p.alive) return;
-
-  // Garde du Corps: if this player is protected AND a guard is watching them, guard dies instead
-  if(p.protected && room.game?.guardTarget === playerId){
-    // Find the Garde du Corps
-    const guard = Object.values(room.players||{}).find(q=>q.alive && q.role==='Garde du Corps');
-    if(guard){
-      // Clear protection and guardTarget
-      await dbUpdate('rooms/'+roomCode+'/game',{guardTarget:null, lastProtected:null});
-      await dbUpdate('rooms/'+roomCode+'/players/'+playerId,{protected:false});
-      // Kill the guard instead
-      await dbUpdate('rooms/'+roomCode+'/players/'+guard.id,{alive:false});
-      await pushLog(`🛡️ ${guard.name} se sacrifie pour sauver ${p.name} !`,'death');
-      if(audioEnabled) playDeathSound();
-      pushNarr({fire:'🛡️',color:'#60c090',title:'Le Sacrifice du Garde',text:`${guard.name} s'est interposé entre les ombres et ${p.name}. Il tombe, mais ${p.name} est sauf(e). Certains choisissent l'honneur jusqu'au bout.`});
-      // Check if guard was a lover
-      const g2 = room.game;
-      if(guard.lovers && g2){
-        const loverId = g2.loversA===guard.id ? g2.loversB : g2.loversA;
-        const lover = room.players?.[loverId];
-        if(lover&&lover.alive){
-          await dbUpdate('rooms/'+roomCode+'/players/'+loverId,{alive:false});
-          await pushLog(`❤️ ${lover.name} ne peut survivre à la mort de son amour et meurt aussi.`,'death');
-        }
+  if(p.protected){
+    const r2=await dbGet('rooms/'+roomCode);
+    if(r2?.game?.guardTarget===playerId&&source!=='nuit'){
+      const guard=Object.values(r2.players||{}).find(q=>q.alive&&q.role==='Garde du Corps');
+      if(guard){
+        await dbUpdate('rooms/'+roomCode+'/players/'+playerId,{protected:false});
+        await dbUpdate('rooms/'+roomCode+'/game',{guardTarget:null});
+        await dbUpdate('rooms/'+roomCode+'/players/'+guard.id,{alive:false});
+        await pushLog(`🛡️ ${guard.name} se sacrifie pour sauver ${p.name} !`,'death');
+        if(audioEnabled) playDeathSound();
+        pushNarr({fire:'🛡️',color:'#60c090',title:'Sacrifice du Garde',text:`${guard.name} tombe à la place de ${p.name}.`});
+        if(guard.mayor) await pushLog('👑 Le Maire est mort !','system');
+        await checkVictory(); return;
       }
-      if(guard.mayor) await pushLog(`👑 Le Maire est mort ! Désignez un nouveau maire.`,'system');
-      await checkVictory();
-      return;
     }
+    await pushLog(`🛡️ ${p.name} était protégé — l'attaque a échoué.`,'info'); return;
   }
-
-  // Normal protection (Avocat, Immunité, etc.) — just block
-  if(p.protected){await pushLog(`🛡️ ${p.name} était protégé — l'attaque a échoué.`,'info');return;}
 
   await dbUpdate('rooms/'+roomCode+'/players/'+playerId,{alive:false});
   await pushLog(`💀 ${p.name} a été éliminé(e).`,'death');
@@ -2353,32 +2426,21 @@ async function killPlayer(playerId, source){
   }
   if(p.mayor) await pushLog(`👑 Le Maire est mort ! Désignez un nouveau maire.`,'system');
 
-  // Chasseur: trigger shot on elimination
-  if(p.role === 'Chasseur' && !room.game?.hunterUsed){
-    await dbUpdate('rooms/'+roomCode+'/game',{hunterUsed:true, hunterPending:playerId});
-    pushNarr({fire:'🏹',color:'#a08040',title:'Le Dernier Tir du Chasseur',text:`${p.name} tombe… mais pas sans riposter. Le Chasseur peut encore choisir qui l'accompagne dans la mort. Son regard cherche une dernière cible dans la foule.`});
-    // Show mandatory modal for the hunter's player to pick a target
-    if(me.id === playerId){
-      const freshRoom = await dbGet('rooms/'+roomCode);
-      const targets = Object.values(freshRoom.players||{}).filter(q=>q.alive&&q.id!==playerId);
-      if(targets.length > 0){
+  if(p.role==='Chasseur'&&!room.game?.hunterUsed){
+    await dbUpdate('rooms/'+roomCode+'/game',{hunterUsed:true});
+    pushNarr({fire:'🏹',color:'#a08040',title:'Le Dernier Tir',text:`${p.name} doit désigner une cible — tir OBLIGATOIRE.`});
+    if(me.id===playerId){
+      const fR=await dbGet('rooms/'+roomCode);
+      const targets=Object.values(fR.players||{}).filter(q=>q.alive&&q.id!==playerId);
+      if(targets.length){
         setTimeout(()=>{
-          // Non-dismissible modal: no close button, must pick
-          document.getElementById('m-title').textContent='🏹 Dernier Tir — Choisissez votre cible';
-          document.getElementById('m-body').innerHTML=`<div class="m-opts">
-            <p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Vous êtes éliminé(e) mais votre flèche doit frapper ! Choisissez obligatoirement une cible.</p>`+
-            targets.map(t=>`<button class="m-opt red" onclick="window._hunterShoot('${t.id}')">${t.avatar} ${esc(t.name)}</button>`).join('')+
-          `</div>`;
-          // Hide the close button temporarily
-          const closeBtn = document.querySelector('#modal-ov .m-close');
-          if(closeBtn) closeBtn.style.display='none';
-          document.getElementById('modal-ov').classList.add('open');
-          // Prevent closing by clicking backdrop
-          document.getElementById('modal-ov')._hunterLock = true;
-        }, 2000);
-      } else {
-        // No targets, clear pending
-        await dbUpdate('rooms/'+roomCode+'/game',{hunterPending:null});
+          const ov=document.getElementById('modal-ov');
+          document.getElementById('m-title').textContent='🏹 Dernier Tir — Obligatoire';
+          document.getElementById('m-body').innerHTML='<div class="m-opts"><p style="color:#e07070;font-size:.85rem;margin-bottom:8px">⚠️ Vous DEVEZ choisir une cible !</p>'+
+            targets.map(t=>`<button class="m-opt red" onclick="window._hunterShoot('${t.id}')">${t.avatar} ${esc(t.name)}</button>`).join('')+'</div>';
+          ov.querySelector('.m-close').style.display='none';
+          ov._hunterLock=true; ov.classList.add('open');
+        },1500);
       }
     }
   }
@@ -2387,16 +2449,11 @@ async function killPlayer(playerId, source){
 }
 
 
-window._kill = (id,src)=>killPlayer(id,src);
-
-window._hunterShoot = async function(targetId){
-  // Re-show close button and clear lock
-  const closeBtn = document.querySelector('#modal-ov .m-close');
-  if(closeBtn) closeBtn.style.display='';
-  document.getElementById('modal-ov')._hunterLock = false;
-  closeModal();
-  await dbUpdate('rooms/'+roomCode+'/game',{hunterPending:null});
-  await killPlayer(targetId,'chasseur');
+window._kill=(id,src)=>killPlayer(id,src);
+window._hunterShoot=async function(id){
+  const ov=document.getElementById('modal-ov');
+  ov.querySelector('.m-close').style.display=''; ov._hunterLock=false; ov.classList.remove('open');
+  await killPlayer(id,'chasseur');
 };
 
 window._setMayor = async function(id){
@@ -2404,7 +2461,7 @@ window._setMayor = async function(id){
   const upd={};
   Object.keys(room.players||{}).forEach(pid=>{upd['rooms/'+roomCode+'/players/'+pid+'/mayor']=false;});
   upd['rooms/'+roomCode+'/players/'+id+'/mayor']=true;
-  await update(ref(db),upd);
+  await window._fb.update(window._fb.ref(db),upd);
   const p=room.players[id];
   if(p) await pushLog(`👑 ${p.name} est élu Maire !`,'info');
 };
@@ -2669,7 +2726,7 @@ window._usurp = async function(id){
   const stolenRole = p.role;
   const rd = ALL_ROLES[stolenRole];
   // Change the Usurpateur's actual role in DB permanently
-  await dbUpdate('rooms/'+roomCode+'/players/'+me.id, {role: stolenRole, usurpedFrom: p.name});
+  await dbUpdate('rooms/'+roomCode+'/players/'+me.id, {role: stolenRole});
   await dbUpdate('rooms/'+roomCode+'/game', {usurpDone: true, usurpUsedTurn: g.turn||1});
   openModal('🎭 Rôle Usurpé !',`<div style="text-align:center;padding:16px;">
     <div style="font-size:2.5rem;">${rd?.emoji||'?'}</div>
@@ -2734,7 +2791,13 @@ window._puppet = async function(victimId, forcedTargetId){
 
 };
 
-async function advocateModal(room){\n  const g = room.game;\n  const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);\n  if(!players.length){openModal('⚖️','<p style=\"color:var(--smoke);font-style:italic;\">Aucune cible disponible.</p>');return;}\n  openModal('⚖️ Avocat — Protéger du vote',\n    `<p style=\"font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;\">Ce joueur ne pourra pas être éliminé par vote aujourd\\'hui.</p>`+\n    players.map(p=>`<button class=\"m-opt\" onclick=\"window._advocate('${p.id}');closeModal()\">${p.avatar} ${esc(p.name)}</button>`).join('')\n  );\n}\nwindow._advocate = async function(id){\n  const room = await dbGet('rooms/'+roomCode);\n  const g = room?.game;\n  const p = room?.players?.[id];\n  if(!p||!g) return;\n  const cooldown = Math.random()<0.5 ? 2 : 3;\n  await dbUpdate('rooms/'+roomCode+'/players/'+id,{protected:true});\n  await dbUpdate('rooms/'+roomCode+'/game',{advocateUsedTurn: g.turn||1, advocateCooldownLength: cooldown});\n  // no log — secret\n};
+async function advocateModal(room){
+  const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
+  openModal('⚖️ Avocat — Protéger du vote',
+    `<p style="font-size:.83rem;color:var(--smoke);margin-bottom:9px;font-style:italic;">Ce joueur ne pourra pas être éliminé par vote aujourd\'hui.</p>`+
+    players.map(p=>`<button class="m-opt" onclick="window._protect('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+  );
+}
 
 async function hunterModal(room){
   const players=Object.values(room.players||{}).filter(p=>p.alive&&p.id!==me.id);
@@ -2845,7 +2908,7 @@ window._vote = async function(targetId){
 
   const voteUpdate = {};
   voteUpdate[`rooms/${roomCode}/game/dayVotes/${me.id}`] = targetId;
-  await update(ref(db), voteUpdate);
+  await window._fb.update(window._fb.ref(db), voteUpdate);
   await pushLog(`🗳️ ${voter.name} vote contre ${target.name}.${voter.mayor?' (voix ×2)':''}`, 'day');
 
   // Check if all alive players have now voted
@@ -2859,7 +2922,7 @@ window._vote = async function(targetId){
     // Claim resolution with atomic guard
     const claimUpd = {};
     claimUpd[`rooms/${roomCode}/game/voteResolved`] = true;
-    await update(ref(db), claimUpd);
+    await window._fb.update(window._fb.ref(db), claimUpd);
     // Re-read to confirm we're the one who set it (simple approach: just proceed)
     await resolveVote(freshRoom);
   }
@@ -2939,46 +3002,11 @@ async function resolveVote(room){
     await dbUpdate('rooms/'+roomCode+'/game',{trapPlayer:null});
   }
 
-  // Kill or avocat/guard protection
+  // Kill or avocat protection
   if(p?.protected){
-    // Check if it's the Garde du Corps protecting this person (guard dies instead)
-    const freshRoom2 = await dbGet('rooms/'+roomCode);
-    const g2 = freshRoom2?.game;
-    if(g2?.guardTarget === eliminatedId){
-      const guard = Object.values(freshRoom2.players||{}).find(q=>q.alive && q.role==='Garde du Corps');
-      if(guard){
-        // Clear protection
-        await dbUpdate('rooms/'+roomCode+'/players/'+eliminatedId,{protected:false});
-        await dbUpdate('rooms/'+roomCode+'/game',{guardTarget:null});
-        // Guard dies in place of the voted player
-        await dbUpdate('rooms/'+roomCode+'/players/'+guard.id,{alive:false});
-        await pushLog(`🛡️ ${guard.name} s'est sacrifié pour sauver ${p.name} du vote du village !`,'death');
-        if(audioEnabled) playDeathSound();
-        pushNarr({fire:'🛡️',color:'#60c090',title:'Le Sacrifice du Garde',
-          text:`Au moment où la sentence allait tomber sur ${p.name}, ${guard.name} s'est levé et s'est interposé. "Pas aujourd'hui." Le Garde du Corps tombe à sa place. ${p.name} est libre.`});
-        // Check guard's lover
-        if(guard.lovers && g2){
-          const loverId = g2.loversA===guard.id ? g2.loversB : g2.loversA;
-          const lover = freshRoom2.players?.[loverId];
-          if(lover&&lover.alive){
-            await dbUpdate('rooms/'+roomCode+'/players/'+loverId,{alive:false});
-            await pushLog(`❤️ ${lover.name} ne peut survivre à la mort de son amour.`,'death');
-          }
-        }
-        if(guard.mayor) await pushLog(`👑 Le Maire est mort ! Désignez un nouveau maire.`,'system');
-        await checkVictory();
-      } else {
-        // Guard already dead, normal avocat-style protection
-        await pushLog(`🛡️ ${p.name} était protégé(e) — le vote n'a aucun effet !`, 'info');
-        pushNarr({fire:'⚖️',color:'#c8a050',title:'Le Village a Voté',
-          text:`La foule avait choisi. Mais au moment de la sentence, quelqu'un a brandi un acte de protection. ${p.name} reste en vie.`});
-      }
-    } else {
-      // Avocat or other protection — player is simply saved
-      await pushLog(`🛡️ ${p.name} était protégé(e) — le vote n'a aucun effet !`, 'info');
-      pushNarr({fire:'⚖️',color:'#c8a050',title:'Le Village a Voté',
-        text:`La foule avait choisi. Mais au moment de la sentence, quelqu'un a brandi un acte de protection. ${p.name} reste en vie. Les visages se décomposent.`});
-    }
+    await pushLog(`🛡️ ${p.name} était protégé(e) — le vote n'a aucun effet !`, 'info');
+    pushNarr({fire:'⚖️',color:'#c8a050',title:'Le Village a Voté',
+      text:`La foule avait choisi. Mais au moment de la sentence, quelqu'un a brandi un acte de protection. ${p.name} reste en vie. Les visages se décomposent.`});
   } else {
     pushNarr({fire:'⚖️',color:'#e0c070',title:'La Justice du Village',
       text:`Après les débats et les accusations, le village a tranché. ${p?.name} — les yeux cherchant encore un ami dans la foule — est conduit vers sa dernière demeure. Avait-il tort de vous faire confiance ?`});
@@ -3012,7 +3040,7 @@ window._wolfVote = async function(targetId){
   if(room.game.wolfVotes?.[me.id]) return;
   const upd = {};
   upd[`rooms/${roomCode}/game/wolfVotes/${me.id}`] = targetId;
-  await update(ref(db), upd);
+  await window._fb.update(window._fb.ref(db), upd);
   // Also post in wolf chat so pack sees
   await dbSet('rooms/'+roomCode+'/wolfchat/'+Date.now()+'_v_'+me.id.substr(0,4),{
     id:me.id, name:me.name, avatar:me.avatar,
@@ -3021,37 +3049,18 @@ window._wolfVote = async function(targetId){
 };
 
 async function protectModal(room){
-  const g = room.game;
-  const lastProtected = g?.lastProtected;
-  const guardLastTurn = g?.guardUsedTurn || 0;
-  const currentTurn = g?.turn || 1;
-  // Cooldown: can only protect every 2 turns
-  if(guardLastTurn && currentTurn - guardLastTurn < 2){
-    const turnsLeft = 2 - (currentTurn - guardLastTurn);
-    openModal('🛡️ Garde du Corps',`<p style="color:var(--smoke);font-style:italic;">Vous devez attendre encore ${turnsLeft} tour(s) avant de pouvoir protéger à nouveau.</p>`);
-    return;
-  }
-  // Can't protect self, can't protect same person as last time
-  const players = Object.values(room.players||{}).filter(p=>p.alive && p.id!==me.id && p.id!==lastProtected);
+  const lastProtected = room.game?.lastProtected;
+  const players = Object.values(room.players||{}).filter(p=>p.alive && p.id!==lastProtected);
   if(!players.length){
-    openModal('🛡️','<p style="color:var(--smoke);font-style:italic;">Aucune cible disponible (vous ne pouvez pas vous protéger vous-même ni protéger la même personne deux nuits d\'affilée).</p>');
+    openModal('🛡️','<p style="color:var(--smoke);font-style:italic;">Vous ne pouvez pas protéger la même personne deux nuits consécutives.</p>');
     return;
   }
   const lastP = lastProtected ? Object.values(room.players||{}).find(p=>p.id===lastProtected) : null;
   openModal('🛡️ Protéger un joueur',
     (lastP?`<p style="font-size:.78rem;color:var(--smoke);margin-bottom:8px;font-style:italic;">⚠️ Vous ne pouvez pas protéger ${esc(lastP.name)} deux nuits d'affilée.</p>`:'') +
-    `<p style="font-size:.78rem;color:var(--smoke);margin-bottom:8px;font-style:italic;">⚠️ Vous ne pouvez pas vous protéger vous-même.</p>` +
-    players.map(p=>`<button class="m-opt green" onclick="window._guardProtect('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
+    players.map(p=>`<button class="m-opt green" onclick="window._protect('${p.id}');closeModal()">${p.avatar} ${esc(p.name)}</button>`).join('')
   );
 }
-window._guardProtect = async function(id){
-  const room = await dbGet('rooms/'+roomCode);
-  const g = room?.game;
-  if(!g) return;
-  await dbUpdate('rooms/'+roomCode+'/players/'+id,{protected:true});
-  await dbUpdate('rooms/'+roomCode+'/game',{lastProtected:id, guardTarget:id, guardUsedTurn:g.turn||1});
-  // no log — secret action
-};
 
 async function witchLifeModal(room){
   const players=Object.values(room.players||{}).filter(p=>!p.alive);
@@ -3173,7 +3182,7 @@ window._cupidonLink = async function(secondId){
   upd['rooms/'+roomCode+'/game/loversA'] = firstId;
   upd['rooms/'+roomCode+'/game/loversB'] = secondId;
   upd['rooms/'+roomCode+'/game/cupidonDone'] = true;
-  await update(ref(db), upd);
+  await window._fb.update(window._fb.ref(db), upd);
   // Store lover IDs so each player can see their own private narr
   await dbUpdate('rooms/'+roomCode+'/game', {loversNarrPending: true});
   // Cupidon sees who they linked
@@ -3362,45 +3371,16 @@ window.closeNarr = function(){document.getElementById('narr').classList.remove('
 // ================================================================
 // MODAL
 // ================================================================
-window.openSettings = function(){
-  document.getElementById('settings-modal').classList.add('open');
-};
-window.closeSettings = function(){
-  document.getElementById('settings-modal').classList.remove('open');
-};
-document.getElementById('settings-modal').addEventListener('click', e=>{
-  if(e.target===document.getElementById('settings-modal')) closeSettings();
-});
-
-window.toggleSound = function(enabled){
-  audioEnabled = enabled;
-  if(enabled){
-    // Resume or create context
-    getAudioCtx();
-    const screen = document.querySelector('.screen.active')?.id?.replace('-screen','');
-    if(screen==='welcome'||screen==='lobby'||screen==='create'||screen==='join'){
-      if(!ambientSource) startAmbient();
-    }
-  } else {
-    // Mute: stop ambient and suspend context
-    stopAmbient();
-    if(audioCtx && audioCtx.state === 'running') audioCtx.suspend();
-  }
-};
-
-
+window.openModal = function(title,body){
   document.getElementById('m-title').textContent=title;
   document.getElementById('m-body').innerHTML=`<div class="m-opts">${body}</div>`;
   document.getElementById('modal-ov').classList.add('open');
 };
-window.closeModal = function(){
-  if(document.getElementById('modal-ov')._hunterLock) return; // Can't close during hunter shot
-  document.getElementById('modal-ov').classList.remove('open');
-};
-document.getElementById('modal-ov').addEventListener('click',e=>{
-  if(e.target===document.getElementById('modal-ov') && !document.getElementById('modal-ov')._hunterLock) closeModal();
-});
+window.closeModal=function(){if(document.getElementById('modal-ov')._hunterLock)return;document.getElementById('modal-ov').classList.remove('open');};
+document.getElementById('modal-ov').addEventListener('click',e=>{if(e.target===document.getElementById('modal-ov')&&!document.getElementById('modal-ov')._hunterLock)closeModal();});
 
+
+});
 </script>
 </body>
 </html>
