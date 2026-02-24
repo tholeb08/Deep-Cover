@@ -293,11 +293,53 @@ body{background:var(--dark);color:var(--moon);font-family:'EB Garamond',Georgia,
 ::-webkit-scrollbar-thumb{background:rgba(232,213,163,.18);border-radius:3px;}
 .spinner{width:34px;height:34px;border:3px solid rgba(232,213,163,.12);border-top-color:var(--moon2);border-radius:50%;animation:spin .8s linear infinite;margin:18px auto;}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* Settings button */
+#settings-btn{position:fixed;top:14px;right:14px;z-index:100;background:rgba(20,18,30,.85);border:1px solid rgba(232,213,163,.18);border-radius:50%;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:1.15rem;cursor:pointer;transition:all .25s;backdrop-filter:blur(6px);}
+#settings-btn:hover{background:rgba(40,35,60,.95);border-color:rgba(232,213,163,.38);transform:rotate(30deg);}
+
+/* Settings modal overlay */
+#settings-modal{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.8);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;}
+#settings-modal.open{display:flex;}
+.settings-box{background:linear-gradient(135deg,var(--dark3),var(--dark2));border:1px solid rgba(232,213,163,.2);border-radius:18px;padding:28px 24px;width:90%;max-width:340px;animation:fadeUp .25s ease;}
+.settings-title{font-family:'Cinzel Decorative',serif;font-size:.95rem;text-align:center;margin-bottom:20px;color:var(--moon);}
+.settings-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(232,213,163,.07);}
+.settings-row:last-of-type{border-bottom:none;}
+.settings-label{font-size:.9rem;color:var(--moon2);display:flex;align-items:center;gap:8px;}
+/* Toggle switch */
+.toggle-switch{position:relative;width:44px;height:24px;cursor:pointer;}
+.toggle-switch input{opacity:0;width:0;height:0;}
+.toggle-track{position:absolute;inset:0;background:rgba(255,255,255,.1);border:1px solid rgba(232,213,163,.2);border-radius:12px;transition:all .3s;}
+.toggle-switch input:checked + .toggle-track{background:var(--blood);border-color:var(--blood2);}
+.toggle-knob{position:absolute;top:3px;left:3px;width:16px;height:16px;background:var(--moon);border-radius:50%;transition:transform .3s;box-shadow:0 1px 4px rgba(0,0,0,.3);}
+.toggle-switch input:checked ~ .toggle-knob{transform:translateX(20px);}
+.settings-close-btn{display:block;width:100%;margin-top:18px;background:rgba(232,213,163,.06);border:1px solid rgba(232,213,163,.15);color:var(--moon2);font-family:'EB Garamond',serif;font-size:.95rem;padding:10px;border-radius:9px;cursor:pointer;transition:all .2s;text-align:center;}
+.settings-close-btn:hover{background:rgba(232,213,163,.14);color:var(--moon);}
 </style>
 </head>
 <body>
 <div class="bg-stars"></div>
 <div class="bg-fog"></div>
+
+<!-- SETTINGS BUTTON -->
+<button id="settings-btn" onclick="openSettings()" title="Paramètres">⚙️</button>
+
+<!-- SETTINGS MODAL -->
+<div id="settings-modal">
+  <div class="settings-box">
+    <div class="settings-title">⚙️ Paramètres</div>
+    <div class="settings-row">
+      <div class="settings-label">🔊 Son du jeu</div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="sound-toggle" checked onchange="toggleSound(this.checked)">
+        <div class="toggle-track"></div>
+        <div class="toggle-knob"></div>
+      </label>
+    </div>
+    <button class="settings-close-btn" onclick="closeSettings()">Fermer</button>
+  </div>
+</div>
+
 <div id="app">
 
 <!-- WELCOME -->
@@ -558,6 +600,7 @@ function playGameStart(){
 
 // 🌀 Sound: event triggered (eerie, chaotic)
 function playEventSound(){
+  if(!audioEnabled) return;
   const ctx = getAudioCtx();
   // Glitchy dissonant hit
   const dissonant = [311, 370, 415, 466];
@@ -644,26 +687,32 @@ function playLoversVictorySound(){
 }
 
 // Enable audio on first interaction
-let audioEnabled = false;
+let audioEnabled = true; // enabled by default, user can toggle
 function enableAudio(){
-  if(audioEnabled) return;
-  audioEnabled = true;
   getAudioCtx();
   startAmbient();
 }
-document.addEventListener('click', enableAudio, {once:true});
-document.addEventListener('keydown', enableAudio, {once:true});
+document.addEventListener('click', function onFirstClick(){
+  getAudioCtx();
+  if(audioEnabled && !ambientSource) startAmbient();
+  document.removeEventListener('click', onFirstClick);
+}, {once:true});
+document.addEventListener('keydown', function onFirstKey(){
+  getAudioCtx();
+  if(audioEnabled && !ambientSource) startAmbient();
+  document.removeEventListener('keydown', onFirstKey);
+}, {once:true});
 
 // Override showScreen to manage ambient
-const _origShowScreen = window.showScreen;
-window.showScreen = function(name){
-  _origShowScreen(name);
+// Note: showScreen is defined later; we patch it after definition via a wrapper approach
+function _manageAmbientOnScreen(name){
   if(name==='welcome'||name==='lobby'||name==='create'||name==='join'){
     if(audioEnabled && !ambientSource) startAmbient();
   } else if(name==='game'){
     stopAmbient();
   }
-};
+}
+const _origShowScreen = null; // will be patched after showScreen is defined
 
 // ================================================================
 // 🔥 REMPLACEZ LES VALEURS CI-DESSOUS PAR VOTRE CONFIG FIREBASE
@@ -798,6 +847,7 @@ function dbListen(path, cb) { return onValue(dbRef(path), snap => cb(snap.exists
 window.showScreen = function(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(name+'-screen').classList.add('active');
+  _manageAmbientOnScreen(name);
 };
 
 function buildAvatarPicker(id, onSel, defVal) {
@@ -1167,7 +1217,8 @@ function renderActions(room) {
       .map(([id,v])=>{ const p=players.find(x=>x.id===id); return `${p?.avatar||''} ${p?.name||'?'} <strong style="color:var(--moon)">${v} vote${v>1?'s':''}</strong>`; })
       .join(' &nbsp;·&nbsp; ');
     const votedCount = Object.keys(mayorVotes).length;
-    const aliveCount = players.filter(p=>p.alive).length;
+    const alive = players.filter(p=>p.alive);
+    const aliveCount = alive.length;
     const pct = aliveCount>0 ? Math.round(votedCount/aliveCount*100) : 0;
 
     btns.innerHTML = `
@@ -1187,16 +1238,22 @@ function renderActions(room) {
     </div>`;
 
     if(!myMayorVote){
-      // Show candidate buttons
-      const candidates = players.filter(p=>p.alive);
-      candidates.forEach(p=>{
-        const btn = document.createElement('button');
-        btn.className = 'a-btn';
-        btn.style.cssText = 'background:rgba(180,140,30,.15);border-color:rgba(200,160,50,.3);color:var(--moon);margin-bottom:4px;';
-        btn.innerHTML = `${p.avatar} ${esc(p.name)}${p.id===myP.id?' (moi)':''}`;
-        btn.onclick = () => voteForMayor(p.id);
-        btns.appendChild(btn);
-      });
+      // Check if all alive have voted already (race condition UI)
+      const allVoted = alive.length > 0 && alive.every(p=>votes[p.id]);
+      if(allVoted){
+        btns.innerHTML += `<div class="a-used" style="color:var(--moon);text-align:center;">🏁 Tous les joueurs ont voté — résolution en cours…</div>`;
+      } else {
+        // Show candidate buttons
+        const candidates = players.filter(p=>p.alive);
+        candidates.forEach(p=>{
+          const btn = document.createElement('button');
+          btn.className = 'a-btn';
+          btn.style.cssText = 'background:rgba(180,140,30,.15);border-color:rgba(200,160,50,.3);color:var(--moon);margin-bottom:4px;';
+          btn.innerHTML = `${p.avatar} ${esc(p.name)}${p.id===myP.id?' (moi)':''}`;
+          btn.onclick = () => voteForMayor(p.id);
+          btns.appendChild(btn);
+        });
+      }
     } else {
       const voted = players.find(p=>p.id===myMayorVote);
       btns.innerHTML += `<div class="a-used" style="color:var(--moon);">✅ Voté pour ${voted?.avatar||''} ${esc(voted?.name||'?')} — en attente des autres…</div>`;
@@ -1273,7 +1330,7 @@ function renderActions(room) {
       if(!g.wolfVotes?.[me.id]) add('🐺 Désigner la victime','red',()=>wolfVoteModal(room));
       else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🐺 Cible désignée — attendez le résultat'}));
     }
-    if(role==='Loup Enragé' && (g.turn % 3 === 0))
+    if(role==='Loup Enragé' && (g.turn % 3 === 0) && !g.wolfVotes?.[me.id])
       add('🔥 Nuit enragée — tuer 2 cibles','red',()=>wolfRageModal(room));
     if(role==='Loup Infectieux'){
       if(!g.wolfVotes?.[me.id]) add('🐺 Désigner la victime','red',()=>wolfVoteModal(room));
@@ -3186,7 +3243,33 @@ window.closeNarr = function(){document.getElementById('narr').classList.remove('
 // ================================================================
 // MODAL
 // ================================================================
-window.openModal = function(title,body){
+window.openSettings = function(){
+  document.getElementById('settings-modal').classList.add('open');
+};
+window.closeSettings = function(){
+  document.getElementById('settings-modal').classList.remove('open');
+};
+document.getElementById('settings-modal').addEventListener('click', e=>{
+  if(e.target===document.getElementById('settings-modal')) closeSettings();
+});
+
+window.toggleSound = function(enabled){
+  audioEnabled = enabled;
+  if(enabled){
+    // Resume or create context
+    getAudioCtx();
+    const screen = document.querySelector('.screen.active')?.id?.replace('-screen','');
+    if(screen==='welcome'||screen==='lobby'||screen==='create'||screen==='join'){
+      if(!ambientSource) startAmbient();
+    }
+  } else {
+    // Mute: stop ambient and suspend context
+    stopAmbient();
+    if(audioCtx && audioCtx.state === 'running') audioCtx.suspend();
+  }
+};
+
+
   document.getElementById('m-title').textContent=title;
   document.getElementById('m-body').innerHTML=`<div class="m-opts">${body}</div>`;
   document.getElementById('modal-ov').classList.add('open');
