@@ -236,10 +236,29 @@ body{background:var(--dark);color:var(--moon);font-family:'EB Garamond',Georgia,
 .chat-inp{flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(232,213,163,.12);border-radius:8px;color:var(--moon);font-family:'EB Garamond',serif;font-size:.88rem;padding:8px 11px;outline:none;transition:border-color .2s;}
 .chat-inp:focus{border-color:rgba(232,213,163,.3);}
 .chat-inp:disabled{opacity:.35;cursor:not-allowed;}
+.chat-inp.silenced{opacity:.4;cursor:not-allowed;border-color:rgba(200,160,80,.3)!important;}
+.silenced-badge{background:rgba(150,120,50,.2);border:1px solid rgba(200,160,80,.35);border-radius:6px;padding:4px 10px;font-size:.75rem;color:#c0a070;font-style:italic;text-align:center;}
 .chat-send{background:linear-gradient(135deg,var(--blood),#500a0a);border:1px solid rgba(176,32,32,.4);color:var(--moon);border-radius:8px;padding:8px 13px;cursor:pointer;font-size:.88rem;transition:all .2s;}
 .chat-send:hover{background:linear-gradient(135deg,var(--blood2),var(--blood));}
 
-/* Dead zone */
+/* VOICE CHAT */
+.voice-panel{background:linear-gradient(135deg,rgba(20,15,40,.6),rgba(10,8,20,.7));border:1px solid rgba(100,80,180,.25);border-radius:14px;padding:14px;margin-bottom:13px;}
+.voice-head{font-family:'Cinzel Decorative',serif;font-size:.64rem;letter-spacing:.12em;color:#a090d0;margin-bottom:10px;text-transform:uppercase;display:flex;align-items:center;gap:6px;}
+.voice-head::before{content:'🎙️';font-size:.85rem;}
+.voice-users{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;min-height:32px;}
+.voice-user{display:flex;align-items:center;gap:5px;background:rgba(100,80,180,.12);border:1px solid rgba(120,100,200,.2);border-radius:20px;padding:4px 10px;font-size:.76rem;transition:.3s;}
+.voice-user.speaking{background:rgba(80,200,120,.15);border-color:rgba(80,200,120,.5);box-shadow:0 0 12px rgba(80,200,120,.2);}
+.voice-user.muted{opacity:.45;}
+.voice-user .v-av{font-size:.95rem;}
+.voice-user .v-name{color:var(--moon2);}
+.voice-user .v-mic{font-size:.7rem;}
+.voice-btns{display:flex;gap:7px;}
+.v-btn{flex:1;background:rgba(100,80,180,.15);border:1px solid rgba(120,100,200,.3);color:var(--moon2);font-family:'EB Garamond',serif;font-size:.83rem;padding:7px 10px;border-radius:8px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:5px;}
+.v-btn:hover{background:rgba(120,100,200,.25);color:var(--moon);}
+.v-btn.active{background:rgba(80,200,120,.2);border-color:rgba(80,200,120,.5);color:#80e0a0;}
+.v-btn.red{background:rgba(180,40,40,.2);border-color:rgba(200,60,60,.4);color:#e07070;}
+.v-btn.red:hover{background:rgba(200,50,50,.3);}
+.v-btn:disabled{opacity:.35;cursor:not-allowed;}
 .dead-zone{padding:10px 14px;background:rgba(0,0,0,.25);border-radius:10px;margin-top:8px;border:1px solid rgba(232,213,163,.05);}
 .dead-zone-lbl{font-size:.68rem;color:var(--smoke);font-style:italic;margin-bottom:6px;text-transform:uppercase;letter-spacing:.1em;}
 .dead-chips{display:flex;flex-wrap:wrap;gap:5px;}
@@ -533,6 +552,15 @@ body{background:var(--dark);color:var(--moon);font-family:'EB Garamond',Georgia,
       </div>
     </div>
     <div class="game-side">
+      <div id="voice-panel" class="voice-panel" style="display:none;">
+        <div class="voice-head">Chat Vocal</div>
+        <div class="voice-users" id="voice-users"></div>
+        <div class="voice-btns">
+          <button class="v-btn" id="v-join-btn" onclick="voiceJoin()">🎙️ Rejoindre</button>
+          <button class="v-btn" id="v-mute-btn" onclick="voiceToggleMute()" style="display:none;">🎤 Muet</button>
+          <button class="v-btn red" id="v-leave-btn" onclick="voiceLeave()" style="display:none;">📵 Quitter</button>
+        </div>
+      </div>
       <div class="event-card" id="ev-card" style="display:none;"></div>
       <div id="wolf-chat-panel" style="display:none;">
         <div class="wolf-chat">
@@ -863,13 +891,13 @@ const ALL_ROLES = {
   'Garde du Corps':  {camp:'village',emoji:'🛡️', desc:'Chaque nuit, vous protégez un joueur contre une attaque. Si votre protégé devrait mourir, c\'est vous qui mourez à sa place.'},
   'Dieu du Village': {camp:'village',emoji:'✨', desc:'Une fois dans la partie, vous pouvez annuler une élimination — de jour comme de nuit. Utilisez ce miracle au bon moment.'},
   'Nécromancien':    {camp:'village',emoji:'💀', desc:'Chaque nuit, choisissez un mort : un canal de chat privé s\'ouvre entre vous et son esprit pour cette nuit uniquement.'},
-  'Chronomancien':   {camp:'village',emoji:'⏳', desc:'Une fois par partie, vous pouvez rembobiner un tour complet et rejouer les événements. Un pouvoir immense.'},
+  'Chronomancien':   {camp:'village', emoji:'⏳', desc:'Une fois par partie, vous rembobinez le compteur de tours d\'un cran. Les joueurs morts restent morts, mais la numérotation repart en arrière — ce qui réinitialise les pouvoirs à recharge (Illusionniste, Hypnotiseur…). Un pouvoir de timing, pas de résurrection.'},
   'Illusionniste':   {camp:'neutre', emoji:'🪄', desc:'Vous pouvez modifier l\'information reçue par la Voyante. Rechargement : 2 ou 3 tours (aléatoire). Elle verra ce que vous voulez, pas la réalité.'},
   'Hypnotiseur':     {camp:'neutre', emoji:'🌀', desc:'Vous forcez un joueur à voter pour une cible précise lors du prochain vote. Rechargement : 2 ou 3 tours (aléatoire). Manipulation pure.'},
   'Usurpateur':      {camp:'neutre', emoji:'🎭', desc:'Vous choisissez un joueur et usurpez son rôle pour toute la partie. Son pouvoir devient le vôtre définitivement.'},
   'Avocat':          {camp:'neutre', emoji:'⚖️', desc:'Vous protégez un joueur contre l\'élimination par vote. Votre client ne peut pas être éliminé ce tour.'},
-  'Traître':         {camp:'neutre', emoji:'🗡️', desc:'Vous commencez comme villageois, mais rejoindrez secrètement les loups plus tard dans la partie.'},
-  'Marionnettiste':  {camp:'neutre', emoji:'🧵', desc:'Vous contrôlez secrètement les actions d\'un joueur pendant la nuit. Il agira selon votre volonté.'},
+  'Traître':         {camp:'neutre', emoji:'🗡️', desc:'Vous commencez comme villageois, mais au tour 3 vous rejoignez automatiquement le camp des loups. Leur objectif devient le vôtre. Les loups ne vous connaissent pas encore — c\'est votre atout.'},
+  'Marionnettiste':  {camp:'neutre', emoji:'🧵', desc:'Vous forcez un joueur à voter pour une cible précise lors du prochain vote de jour. Votre contrôle passe par le même système que l\'Hypnotiseur. Rechargement : 2–3 tours.'},
 };
 
 const AVATARS = ['🧑','👩','🧔','👵','🧒','👧','🧑‍🦱','🧑‍🦳','🧑‍🦰','🧑‍🦲','🧕','🧛','🧙','🧝','🧟','🧜','🧚','🎩'];
@@ -1195,7 +1223,7 @@ function onRoomUpdate(room) {
 
   if(room.status==='playing'){
     if(!document.getElementById('game-screen').classList.contains('active')){
-      showScreen('game'); startTimerLoop();
+      showScreen('game'); startTimerLoop(); initVoicePanel();
     } else if(!timerInterval) { startTimerLoop(); }
     renderMyRole(room);
     updateGameView(room);
@@ -1264,6 +1292,7 @@ function updateGameView(room) {
   renderEvent(g);
   renderWolfChat(room);
   renderNecroChat(room);
+  updateChatInputState(g);
 }
 
 function renderMyRole(room) {
@@ -1440,12 +1469,20 @@ function renderActions(room) {
 
   if(g.phase==='night'){
     // Wolf roles
-    if(['Loup-Garou','Loup Blanc','Loup Enragé','Loup aux Puces'].includes(role)){
+    if(['Loup-Garou','Loup Blanc','Loup aux Puces'].includes(role)){
       if(!g.wolfVotes?.[me.id]) add('🐺 Désigner la victime','red',()=>wolfVoteModal(room));
       else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🐺 Cible désignée — attendez le résultat'}));
     }
-    if(role==='Loup Enragé'&&(g.turn%3===0)&&!g.wolfVotes?.[me.id])
-      add('🔥 Nuit enragée — tuer 2 cibles','red',()=>wolfRageModal(room));
+    if(role==='Loup Enragé'){
+      const isRageNight = (g.turn%3===0);
+      if(isRageNight){
+        if(!g.wolfVotes?.[me.id]) add('🔥 Nuit enragée — tuer 2 cibles','red',()=>wolfRageModal(room));
+        else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🔥 Cibles enragées désignées'}));
+      } else {
+        if(!g.wolfVotes?.[me.id]) add('🐺 Désigner la victime','red',()=>wolfVoteModal(room));
+        else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🐺 Cible désignée — attendez le résultat'}));
+      }
+    }
     if(role==='Loup Infectieux'){
       if(!g.wolfVotes?.[me.id]) add('🐺 Désigner la victime','red',()=>wolfVoteModal(room));
       else btns.appendChild(Object.assign(document.createElement('div'),{className:'a-used',textContent:'🐺 Cible désignée'}));
@@ -1816,6 +1853,7 @@ async function switchPhase(newPhase){
     if(newPhase==='day') await pushDawnWhispers(freshRoom);
   }
   if(newPhase==='day') await checkVictory();
+  if(newPhase==='night') await checkTraitorBetrayal(freshRoom);
 }
 
 // ================================================================
@@ -2010,6 +2048,7 @@ async function pushDawnWhispers(room){
         `${p.name}, tu joues encore le villageois. Pour combien de temps ? La meute t'attend dans l'ombre. Écoute les signaux — le moment de changer de camp se rapproche peut-être.`,
         `Ton loyauté est une illusion que tu vends chaque jour, ${p.name}. Mais les loups savent la vérité. Et bientôt, tout le village le saura aussi.`,
         `${p.name}, chaque journée que tu passes parmi les villageois est un risque. Si tu te retournes trop tôt, tu es suspect. Trop tard, et les loups auront déjà perdu.`,
+        dn ? `${dn} est mort(e) — et ce n'est peut-être pas étranger à ce que tu portes, ${p.name}. Sois prêt(e). La transformation approche.` : `${p.name}, le village te croit innocent. Pour combien de temps encore ? Au 3ème tour, ton masque tombera définitivement.`,
       ],
       'Marionnettiste': [
         `${p.name}, tes fils ont agi cette nuit. Les conséquences de tes manipulations se lisent dans les comportements d'aujourd'hui — si tu sais où regarder.`,
@@ -2112,6 +2151,26 @@ async function checkFleaInfection(room){
       pushNarr({fire:'🐜',color:'#8a6030',title:'La Métamorphose',text:`${target.name} se réveille avec une sensation étrange. Quelque chose en lui a changé. Une soif nouvelle. Une loyauté nouvelle. La meute l'appelle maintenant.`});
     }
   }
+}
+
+// ================================================================
+// TRAÎTRE — automatic betrayal at turn 3
+// ================================================================
+async function checkTraitorBetrayal(room){
+  const g = room.game;
+  if(!g) return;
+  if(g.traiteurBetrayed) return; // already done
+  if((g.turn||1) < 3) return;
+  const players = Object.values(room.players||{});
+  const traitor = players.find(p=>p.role==='Traître' && p.alive);
+  if(!traitor) return;
+  // Change traitor's camp to loup
+  await dbUpdate('rooms/'+roomCode+'/players/'+traitor.id, {role:'Loup-Garou'});
+  await dbUpdate('rooms/'+roomCode+'/game', {traiteurBetrayed:true});
+  await pushLog(`🗡️ Une âme sombre change de camp dans l'ombre du village…`,'chaos');
+  pushNarr({fire:'🗡️',color:'#c04040',title:'La Trahison',
+    text:`La loyauté n'était qu'un masque. Dans le secret de la nuit, une âme a cédé à l'appel des ténèbres. Le camp des loups vient de gagner un allié inattendu.`});
+  // Private notification only for the traitor themselves (shown via dawnWhisper next day)
 }
 
 // ================================================================
@@ -2399,7 +2458,8 @@ async function killPlayer(playerId, source){
   if(!p||!p.alive) return;
   if(p.protected){
     const r2=await dbGet('rooms/'+roomCode);
-    if(r2?.game?.guardTarget===playerId&&source!=='nuit'){
+    // Garde du Corps: sacrifice himself if HE is the one who protected this player this night
+    if(r2?.game?.guardTarget===playerId){
       const guard=Object.values(r2.players||{}).find(q=>q.alive&&q.role==='Garde du Corps');
       if(guard){
         await dbUpdate('rooms/'+roomCode+'/players/'+playerId,{protected:false});
@@ -2407,7 +2467,7 @@ async function killPlayer(playerId, source){
         await dbUpdate('rooms/'+roomCode+'/players/'+guard.id,{alive:false});
         await pushLog(`🛡️ ${guard.name} se sacrifie pour sauver ${p.name} !`,'death');
         if(audioEnabled) playDeathSound();
-        pushNarr({fire:'🛡️',color:'#60c090',title:'Sacrifice du Garde',text:`${guard.name} tombe à la place de ${p.name}.`});
+        pushNarr({fire:'🛡️',color:'#60c090',title:'Sacrifice du Garde',text:`${guard.name} s'est interposé entre ${p.name} et la mort. Son sacrifice ne sera pas oublié.`});
         if(guard.mayor) await pushLog('👑 Le Maire est mort !','system');
         await checkVictory(); return;
       }
@@ -2435,7 +2495,23 @@ async function killPlayer(playerId, source){
       pushNarr({fire:'💔',color:'#f48fb1',title:'Un Amour Brisé',text:`Quand ${p.name} est tombé(e), quelque chose dans le cœur de ${lover.name} s'est brisé. Les amoureux liés par Cupidon ne peuvent survivre l'un sans l'autre. La légende s'est confirmée.`});
     }
   }
-  if(p.mayor) await pushLog(`👑 Le Maire est mort ! Désignez un nouveau maire.`,'system');
+  if(p.mayor) await pushLog(`👑 Le Maire ${p.name} est mort ! Un nouveau Maire doit être élu.`,'system');
+
+  // Auto-trigger new mayor election if the deceased was Mayor
+  if(p.mayor && isHost){
+    const freshR=await dbGet('rooms/'+roomCode);
+    const aliveP=Object.values(freshR?.players||{}).filter(q=>q.alive);
+    if(aliveP.length>0){
+      // Pick a random new mayor from alive players
+      const newMayor=aliveP[Math.floor(Math.random()*aliveP.length)];
+      const mUpd={};
+      aliveP.forEach(q=>{mUpd['rooms/'+roomCode+'/players/'+q.id+'/mayor']=false;});
+      mUpd['rooms/'+roomCode+'/players/'+newMayor.id+'/mayor']=true;
+      await window._fb.update(window._fb.ref(db),mUpd);
+      await pushLog(`👑 ${newMayor.name} hérite automatiquement de la couronne du Maire.`,'info');
+      pushNarr({fire:'👑',color:'#d4a017',title:'Nouveau Maire',text:`La couronne ne peut rester sans tête. Le destin désigne ${newMayor.name} comme nouveau Maire du village. Sa voix comptera double aux votes.`});
+    }
+  }
 
   if(p.role==='Chasseur'&&!room.game?.hunterUsed){
     await dbUpdate('rooms/'+roomCode+'/game',{hunterUsed:true});
@@ -3237,6 +3313,29 @@ window.sendChat = async function(){
   });
 };
 
+// Update chat input visual state based on restrictions
+function updateChatInputState(g){
+  const inp = document.getElementById('chat-in');
+  const chatRow = inp?.parentElement;
+  if(!inp || !chatRow) return;
+  const silenced = g?.silencedPlayer===me.id && g?.silencedTurn===(g?.turn||1);
+  const fogged = g?.fogEnd && Date.now()<g?.fogEnd;
+  const noDebate = g?.noDebate && g?.phase==='day';
+  const blocked = silenced || fogged || noDebate;
+  inp.disabled = blocked;
+  inp.classList.toggle('silenced', blocked);
+  let badge = chatRow.querySelector('.silenced-badge');
+  if(blocked && !badge){
+    badge = document.createElement('div');
+    badge.className = 'silenced-badge';
+    const msg = silenced ? '🤫 Vous êtes réduit(e) au silence' : fogged ? '🌫️ Brouillard — chat bloqué' : '🚫 Discussions interdites';
+    badge.textContent = msg;
+    chatRow.insertBefore(badge, inp);
+  } else if(!blocked && badge){
+    badge.remove();
+  }
+}
+
 function renderChat(room){
   // Merge chat messages and log entries, sorted by timestamp
   const msgs = room.chat ? Object.values(room.chat).sort((a,b)=>a.ts-b.ts) : [];
@@ -3299,7 +3398,8 @@ async function checkVictory(){
   let victory=null;
   if(alive.length===0){
     victory={type:'chaos',title:'💀 Personne ne survit',desc:'Le village s\'est auto-détruit. Ni loups ni villageois.',survivors:[],color:'#888888'};
-  } else if(alive.length===2&&alive[0].lovers&&alive[1].lovers){
+  } else if(alive.length===2 && g.loversA && g.loversB &&
+      alive.some(p=>p.id===g.loversA) && alive.some(p=>p.id===g.loversB)){
     victory={type:'lovers',title:'❤️ Les Amoureux Gagnent !',desc:`Ni le village ni les loups n'ont pu les séparer. Leur amour interdit a réécrit la légende.`,survivors:alive,color:'#f48fb1'};
     pushNarr({fire:'❤️',color:'#f48fb1',title:'L\'Amour Triomphe',text:`Ils se sont battus contre tous. ${alive[0].name} et ${alive[1].name} survivent ensemble dans un monde qui les a combattus. Leur amour a vaincu les loups et le village.`});
   } else if(alive.length===1&&alive[0].role==='Loup Blanc'){
@@ -3331,12 +3431,24 @@ function showVictory(v){
   document.getElementById('v-title').style.color=v.color;
   document.getElementById('v-desc').textContent=v.desc;
   const s=document.getElementById('v-surv');
-  if(v.survivors?.length){
-    s.innerHTML='<div style="font-family:\'Cinzel Decorative\',serif;font-size:.72rem;color:var(--smoke);margin-bottom:10px;text-transform:uppercase;letter-spacing:.1em;">Survivants</div>'+
-      v.survivors.map(p=>`<div class="surv-row"><span style="font-size:1.4rem;">${p.avatar}</span><span>${esc(p.name)}</span><span style="color:var(--smoke);font-size:.8rem;font-style:italic;margin-left:auto;">${ALL_ROLES[p.role]?.emoji||''} ${p.role}</span></div>`).join('');
+  const allPlayers = localRoom?.players ? Object.values(localRoom.players) : [];
+  const survivors = v.survivors||[];
+  let html = '';
+  if(survivors.length){
+    html+='<div style="font-family:\'Cinzel Decorative\',serif;font-size:.72rem;color:var(--smoke);margin-bottom:10px;text-transform:uppercase;letter-spacing:.1em;">Survivants</div>'+
+      survivors.map(p=>`<div class="surv-row"><span style="font-size:1.4rem;">${p.avatar}</span><span>${esc(p.name)}</span><span style="color:var(--smoke);font-size:.8rem;font-style:italic;margin-left:auto;">${ALL_ROLES[p.role]?.emoji||''} ${p.role}</span></div>`).join('');
   } else {
-    s.innerHTML='<div style="color:var(--smoke);font-style:italic;">Aucun survivant</div>';
+    html='<div style="color:var(--smoke);font-style:italic;">Aucun survivant</div>';
   }
+  // Reveal all roles
+  if(allPlayers.length>0){
+    const dead = allPlayers.filter(p=>!p.alive);
+    if(dead.length){
+      html+='<div style="font-family:\'Cinzel Decorative\',serif;font-size:.72rem;color:var(--smoke);margin:14px 0 8px;text-transform:uppercase;letter-spacing:.1em;border-top:1px solid rgba(232,213,163,.1);padding-top:10px;">⚰️ Éliminés — Révélation</div>'+
+        dead.map(p=>`<div class="surv-row" style="opacity:.7;"><span style="font-size:1.4rem;filter:grayscale(1)">${p.avatar}</span><span style="text-decoration:line-through;color:var(--smoke)">${esc(p.name)}</span><span style="color:var(--smoke);font-size:.8rem;font-style:italic;margin-left:auto;">${ALL_ROLES[p.role]?.emoji||''} ${p.role}</span></div>`).join('');
+    }
+  }
+  s.innerHTML=html;
 }
 
 window.backToWelcome = function(){
@@ -3346,6 +3458,258 @@ window.backToWelcome = function(){
   selectedRoles=new Set(['Loup-Garou','Villageois','Voyante']);
   showScreen('welcome');
 };
+
+// ================================================================
+// 🎙️ VOICE CHAT ENGINE — WebRTC mesh via Firebase signaling
+// ================================================================
+let voiceActive = false;
+let localStream = null;
+let voiceMuted = false;
+let voicePeers = {}; // peerId -> { pc: RTCPeerConnection, audioEl: HTMLAudioElement }
+let voiceParticipants = {}; // peerId -> {name, avatar, speaking, muted}
+let voiceUnsubSignal = null;
+let voiceUnsubParticipants = null;
+let voiceSpeakingTimer = null;
+let audioAnalyser = null;
+let audioAnalyserSource = null;
+
+const ICE_SERVERS = {iceServers:[
+  {urls:'stun:stun.l.google.com:19302'},
+  {urls:'stun:stun1.l.google.com:19302'}
+]};
+
+async function voiceJoin(){
+  if(voiceActive) return;
+  try{
+    localStream = await navigator.mediaDevices.getUserMedia({audio:true, video:false});
+  } catch(e){
+    openModal('🎙️ Microphone',`<p style="color:#e07070;font-style:italic;">Impossible d'accéder au microphone.<br><small>${e.message}</small></p>`);
+    return;
+  }
+  voiceActive = true;
+  voiceMuted = false;
+
+  // Register self in Firebase voice participants
+  await dbSet('rooms/'+roomCode+'/voice/'+me.id, {
+    name:me.name, avatar:me.avatar, id:me.id, muted:false, ts:Date.now()
+  });
+
+  // Listen to all participants
+  voiceUnsubParticipants = dbListen('rooms/'+roomCode+'/voice', async (data)=>{
+    voiceParticipants = data ? {...data} : {};
+    renderVoicePanel();
+    // Connect to any new peer we haven't connected to yet
+    if(data){
+      for(const [peerId, peerData] of Object.entries(data)){
+        if(peerId !== me.id && !voicePeers[peerId]){
+          // Polite peer: higher ID is the "impolite" peer who creates the offer
+          if(me.id > peerId) await voiceCreateOffer(peerId);
+        }
+      }
+      // Clean up disconnected peers
+      for(const peerId of Object.keys(voicePeers)){
+        if(!data[peerId]) voiceClosePeer(peerId);
+      }
+    } else {
+      Object.keys(voicePeers).forEach(voiceClosePeer);
+    }
+  });
+
+  // Listen to signaling messages addressed to us
+  voiceUnsubSignal = dbListen('rooms/'+roomCode+'/voicesig/'+me.id, async (signals)=>{
+    if(!signals) return;
+    for(const [sigId, sig] of Object.entries(signals)){
+      await voiceHandleSignal(sig.from, sig);
+      // Delete processed signal
+      await dbSet('rooms/'+roomCode+'/voicesig/'+me.id+'/'+sigId, null);
+    }
+  });
+
+  // Start speaking detection
+  voiceStartSpeakingDetection();
+
+  // Update UI
+  document.getElementById('v-join-btn').style.display='none';
+  document.getElementById('v-mute-btn').style.display='flex';
+  document.getElementById('v-leave-btn').style.display='flex';
+  renderVoicePanel();
+}
+
+async function voiceCreateOffer(peerId){
+  const pc = voiceCreatePeerConnection(peerId);
+  localStream.getTracks().forEach(t=>pc.addTrack(t, localStream));
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  await voiceSendSignal(peerId, {type:'offer', sdp:offer.sdp, from:me.id});
+}
+
+function voiceCreatePeerConnection(peerId){
+  const pc = new RTCPeerConnection(ICE_SERVERS);
+  voicePeers[peerId] = {pc, audioEl:null};
+
+  pc.onicecandidate = async (e)=>{
+    if(e.candidate){
+      await voiceSendSignal(peerId, {type:'candidate', candidate:e.candidate, from:me.id});
+    }
+  };
+
+  pc.ontrack = (e)=>{
+    const audioEl = new Audio();
+    audioEl.srcObject = e.streams[0];
+    audioEl.autoplay = true;
+    if(voicePeers[peerId]) voicePeers[peerId].audioEl = audioEl;
+    audioEl.play().catch(()=>{});
+  };
+
+  pc.onconnectionstatechange = ()=>{
+    if(['failed','disconnected','closed'].includes(pc.connectionState)){
+      voiceClosePeer(peerId);
+    }
+  };
+
+  return pc;
+}
+
+async function voiceHandleSignal(fromId, sig){
+  if(!voiceActive) return;
+  if(sig.type==='offer'){
+    const pc = voiceCreatePeerConnection(fromId);
+    localStream.getTracks().forEach(t=>pc.addTrack(t, localStream));
+    await pc.setRemoteDescription({type:'offer', sdp:sig.sdp});
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await voiceSendSignal(fromId, {type:'answer', sdp:answer.sdp, from:me.id});
+  } else if(sig.type==='answer'){
+    const peer = voicePeers[fromId];
+    if(peer?.pc && peer.pc.signalingState==='have-local-offer'){
+      await peer.pc.setRemoteDescription({type:'answer', sdp:sig.sdp});
+    }
+  } else if(sig.type==='candidate'){
+    const peer = voicePeers[fromId];
+    if(peer?.pc){
+      try{ await peer.pc.addIceCandidate(new RTCIceCandidate(sig.candidate)); }catch(e){}
+    }
+  }
+}
+
+async function voiceSendSignal(toId, signal){
+  const sigId = Date.now()+'_'+Math.random().toString(36).substr(2,4);
+  await dbSet('rooms/'+roomCode+'/voicesig/'+toId+'/'+sigId, signal);
+}
+
+function voiceClosePeer(peerId){
+  const peer = voicePeers[peerId];
+  if(!peer) return;
+  try{peer.pc.close();}catch(e){}
+  if(peer.audioEl) try{peer.audioEl.pause();peer.audioEl.srcObject=null;}catch(e){}
+  delete voicePeers[peerId];
+}
+
+async function voiceLeave(){
+  if(!voiceActive) return;
+  voiceActive = false;
+  if(voiceUnsubSignal){voiceUnsubSignal();voiceUnsubSignal=null;}
+  if(voiceUnsubParticipants){voiceUnsubParticipants();voiceUnsubParticipants=null;}
+  Object.keys(voicePeers).forEach(voiceClosePeer);
+  voicePeers={};
+  if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;}
+  if(voiceSpeakingTimer){clearInterval(voiceSpeakingTimer);voiceSpeakingTimer=null;}
+  // Remove self from Firebase
+  await dbSet('rooms/'+roomCode+'/voice/'+me.id, null);
+  document.getElementById('v-join-btn').style.display='flex';
+  document.getElementById('v-mute-btn').style.display='none';
+  document.getElementById('v-leave-btn').style.display='none';
+  renderVoicePanel();
+}
+
+async function voiceToggleMute(){
+  if(!localStream) return;
+  voiceMuted = !voiceMuted;
+  localStream.getAudioTracks().forEach(t=>{ t.enabled = !voiceMuted; });
+  const btn = document.getElementById('v-mute-btn');
+  if(voiceMuted){
+    btn.textContent='🔇 Reprendre';
+    btn.classList.add('red');
+  } else {
+    btn.textContent='🎤 Muet';
+    btn.classList.remove('red');
+  }
+  // Update Firebase state
+  await dbUpdate('rooms/'+roomCode+'/voice/'+me.id, {muted:voiceMuted});
+  renderVoicePanel();
+}
+
+function voiceStartSpeakingDetection(){
+  if(!localStream) return;
+  try{
+    const ctx = getAudioCtx();
+    audioAnalyserSource = ctx.createMediaStreamSource(localStream);
+    audioAnalyser = ctx.createAnalyser();
+    audioAnalyser.fftSize = 256;
+    audioAnalyserSource.connect(audioAnalyser);
+    const buf = new Uint8Array(audioAnalyser.frequencyBinCount);
+    let lastSpeaking = false;
+    voiceSpeakingTimer = setInterval(async ()=>{
+      if(!audioAnalyser || voiceMuted) return;
+      audioAnalyser.getByteFrequencyData(buf);
+      const avg = buf.reduce((a,b)=>a+b,0)/buf.length;
+      const speaking = avg > 15;
+      if(speaking !== lastSpeaking){
+        lastSpeaking = speaking;
+        await dbUpdate('rooms/'+roomCode+'/voice/'+me.id, {speaking});
+      }
+    }, 200);
+  }catch(e){}
+}
+
+function renderVoicePanel(){
+  const panel = document.getElementById('voice-panel');
+  const container = document.getElementById('voice-users');
+  if(!panel || !container) return;
+  panel.style.display = 'block';
+  const pts = Object.values(voiceParticipants||{});
+  if(!pts.length){
+    container.innerHTML='<div style="color:var(--smoke);font-size:.76rem;font-style:italic;">Personne en vocal…</div>';
+    return;
+  }
+  container.innerHTML = pts.map(p=>{
+    const isMe = p.id===me.id;
+    const cls = `voice-user ${p.speaking&&!p.muted?'speaking':''} ${p.muted?'muted':''}`;
+    const mic = p.muted ? '🔇' : (p.speaking ? '🔊' : '🎙️');
+    return `<div class="${cls}" title="${esc(p.name)}">
+      <span class="v-av">${p.avatar}</span>
+      <span class="v-name">${esc(p.name)}${isMe?' (vous)':''}</span>
+      <span class="v-mic">${mic}</span>
+    </div>`;
+  }).join('');
+}
+
+// Show voice panel as soon as game screen is active
+function initVoicePanel(){
+  const panel = document.getElementById('voice-panel');
+  if(panel) panel.style.display='block';
+  renderVoicePanel();
+}
+
+// Cleanup voice when leaving game
+const _origBackToWelcome = window.backToWelcome;
+window.backToWelcome = async function(){
+  await voiceLeave();
+  _origBackToWelcome();
+};
+
+window.voiceJoin = voiceJoin;
+window.voiceLeave = voiceLeave;
+window.voiceToggleMute = voiceToggleMute;
+
+// ================================================================
+// END VOICE CHAT ENGINE
+// ================================================================
+
+});
+</script>
+</body>
+</html>
 
 // ================================================================
 // NARRATIVE — shared via Firebase
