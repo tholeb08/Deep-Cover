@@ -628,11 +628,8 @@ window.switchSettingsTab = function(tab){
   if(panel) panel.classList.add('active');
 };
 window.toggleSound = function(on){
-  if(typeof audioEnabled !== 'undefined') {
-    audioEnabled = on;
-    if(on){ if(typeof getAudioCtx==='function') getAudioCtx(); }
-    else { if(typeof stopAmbient==='function') stopAmbient(); }
-  }
+  // sera remplacée une fois Firebase chargé
+  window._pendingSoundToggle = on;
 };
 
 window.addEventListener('firebaseLoaded', function() {
@@ -703,7 +700,21 @@ let pingTimer = null;
 function stopAmbient(){
   if(ambientSource){try{ambientSource.stop();}catch(e){} ambientSource=null;}
   if(pingTimer){clearTimeout(pingTimer); pingTimer=null;}
+  if(ambientGain){try{ambientGain.disconnect();}catch(e){} ambientGain=null;}
 }
+
+// Redéfinir toggleSound ici (accès aux vraies variables audio)
+window.toggleSound = function(on){
+  audioEnabled = on;
+  if(on){
+    getAudioCtx();
+    const active = document.querySelector('.screen.active')?.id?.replace('-screen','');
+    if(['welcome','lobby','create','join'].includes(active) && !ambientSource) startAmbient();
+  } else {
+    stopAmbient();
+    try{ if(audioCtx && audioCtx.state==='running') audioCtx.suspend(); }catch(e){}
+  }
+};
 
 // 🌙 Sound: game launches (dramatic reveal)
 function playGameStart(){
