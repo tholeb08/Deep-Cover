@@ -1626,8 +1626,12 @@ function startTimerLoop(){
       const coordinator = alive.length > 0 ? alive.sort((a,b)=>a.id.localeCompare(b.id))[0] : null;
       if(coordinator && coordinator.id === me.id) {
         if(g.phase === 'mayor_election'){
-          // Time's up for election — resolve with whoever has most votes
-          resolveMayorElection();
+          (async()=>{
+            const freshG = await dbGet('rooms/'+roomCode+'/game');
+            if(freshG?.phase === 'mayor_election' && !freshG?.mayorResolved){
+              resolveMayorElection();
+            }
+          })();
         } else if(g.phase === 'day'){
           // On day timeout, auto-resolve votes with whoever has most
           (async()=>{
@@ -1721,9 +1725,12 @@ window.voteForMayor = async function(candidateId){
   const room = await dbGet('rooms/'+roomCode);
   const g = room?.game;
   if(g?.phase !== 'mayor_election') return;
+  if(g?.mayorResolved) return; // already resolving
   const players = Object.values(room.players||{});
   const myP = players.find(p=>p.id===me.id);
   if(!myP?.alive) return;
+  if(g?.mayorVotes?.[myP.id]) return; // already voted
+
   await dbUpdate('rooms/'+roomCode+'/game',{
     [`mayorVotes/${myP.id}`]: candidateId
   });
@@ -1732,19 +1739,32 @@ window.voteForMayor = async function(candidateId){
   // Check if everyone has voted → resolve immediately
   const fresh = await dbGet('rooms/'+roomCode);
   const freshG = fresh?.game;
+  if(freshG?.mayorResolved) return; // someone else already resolving
   const alive = Object.values(fresh.players||{}).filter(p=>p.alive);
   const votes = freshG?.mayorVotes || {};
-  if(alive.length > 0 && alive.every(p=>votes[p.id])){
-    // Auto-resolve when all voted
-    const coordinator = alive.sort((a,b)=>a.id.localeCompare(b.id))[0];
-    if(coordinator.id === me.id) await resolveMayorElection();
+  const allVoted = alive.length > 0 && alive.every(p=>votes[p.id]);
+  if(allVoted){
+    // Atomic claim: only the alphabetically first player among alive resolves
+    const coordinator = [...alive].sort((a,b)=>a.id.localeCompare(b.id))[0];
+    if(coordinator.id === me.id){
+      await resolveMayorElection();
+    }
   }
 };
 
 async function resolveMayorElection(){
   const room = await dbGet('rooms/'+roomCode);
   const g = room?.game;
-  if(g?.phase !== 'mayor_election') return;
+  if(!g || g.phase !== 'mayor_election') return;
+  if(g.mayorResolved) return; // already done by another client
+
+  // --- ATOMIC LOCK: claim resolution immediately ---
+  await dbUpdate('rooms/'+roomCode+'/game', {mayorResolved: true, phase: 'resolving_mayor'});
+
+  // Re-read to confirm we got the lock (simple optimistic approach)
+  const locked = await dbGet('rooms/'+roomCode+'/game');
+  if(locked?.phase !== 'resolving_mayor') return; // someone else won
+
   const players = Object.values(room.players||{});
   const alive = players.filter(p=>p.alive);
   const votes = g.mayorVotes || {};
@@ -1755,7 +1775,6 @@ async function resolveMayorElection(){
 
   let electedId;
   if(!Object.keys(tally).length){
-    // No votes → random
     electedId = alive[Math.floor(Math.random()*alive.length)]?.id;
   } else {
     const maxV = Math.max(...Object.values(tally));
@@ -1766,23 +1785,49 @@ async function resolveMayorElection(){
   const elected = players.find(p=>p.id===electedId);
   if(!elected) return;
 
-  // Set mayor flag
+  // Set mayor flag — ONLY for the elected, clear all others first
   const upd = {};
   players.forEach(p=>{ upd['rooms/'+roomCode+'/players/'+p.id+'/mayor'] = false; });
   upd['rooms/'+roomCode+'/players/'+electedId+'/mayor'] = true;
   upd['rooms/'+roomCode+'/game/mayorElected'] = true;
   upd['rooms/'+roomCode+'/game/mayorVotes'] = null;
+  // Keep mayorResolved = true so the listener never re-triggers this
   await window._fb.update(window._fb.ref(db), upd);
 
   await pushLog(`👑 ${elected.name} est élu(e) Maire du village !`, 'system');
   pushNarr({fire:'👑',color:'#d4a017',title:'Le Village a Parlé',
     text:`Après délibération, le village a désigné ${elected.name} comme Maire. Sa voix comptera double lors des votes. Qu'il guide le village avec sagesse… ou trahise leur confiance.`});
 
-  // Now start Night 1 normally
-  const nightRoom = await dbGet('rooms/'+roomCode);
-  const nightG = nightRoom?.game;
-  await maybeEvent(nightG);
-  await switchPhase('night');
+  // Transition directly to Night 1 (no event before night 1)
+  await switchPhaseFromElection();
+}
+
+async function switchPhaseFromElection(){
+  // Special: go from mayor_election straight to night 1 without resetting mayor
+  const room = await dbGet('rooms/'+roomCode);
+  if(!room?.game) return;
+  const g = room.game;
+  const nightDur = g.nightDur||90;
+  const updates = {};
+  updates['rooms/'+roomCode+'/game/phase'] = 'night';
+  updates['rooms/'+roomCode+'/game/phaseEndTime'] = Date.now()+nightDur*1000;
+  updates['rooms/'+roomCode+'/game/lastPhaseChange'] = Date.now();
+  updates['rooms/'+roomCode+'/game/turn'] = 1; // First night is turn 1
+  updates['rooms/'+roomCode+'/game/seerUsed'] = false;
+  updates['rooms/'+roomCode+'/game/wolfVotes'] = null;
+  // DO NOT reset mayor here — we just elected one!
+  const players = Object.values(room.players||{});
+  players.forEach(p=>{ updates['rooms/'+roomCode+'/players/'+p.id+'/protected']=false; });
+  await window._fb.update(window._fb.ref(db), updates);
+
+  await pushLog(`🌑 — Nuit 1 — Les loups se réveillent.`,'night');
+  pushNarr({fire:'🌑',color:'#8070b0',title:'Nuit 1',text:`Le soleil s'est couché. Les volets se ferment. Dans l'obscurité totale, quelque chose se déplace lentement entre les maisons. Quelqu'un prépare son crime.`});
+  const freshRoom = await dbGet('rooms/'+roomCode);
+  if(freshRoom) {
+    await maybeEvent(freshRoom.game);
+    await checkFleaInfection(freshRoom);
+    await maybeAmbientNarr(freshRoom);
+  }
 }
 
 async function switchPhase(newPhase){
@@ -1813,10 +1858,14 @@ async function switchPhase(newPhase){
     updates['rooms/'+roomCode+'/game/silencedPlayer'] = null;
     updates['rooms/'+roomCode+'/game/silencedTurn'] = null;
     updates['rooms/'+roomCode+'/game/currentEvent'] = null;
-    // Reset protection + mayor sur-role
+    // Reset protection. Mayor persists unless it was a temporary event-mayor.
     const players = room.players ? Object.values(room.players) : [];
     players.forEach(p=>{ updates['rooms/'+roomCode+'/players/'+p.id+'/protected']=false; });
-    players.forEach(p=>{ updates['rooms/'+roomCode+'/players/'+p.id+'/mayor']=false; });
+    // Only clear event-assigned mayor (mayorFromEvent flag), not the elected one
+    if(g.mayorFromEvent){
+      players.forEach(p=>{ updates['rooms/'+roomCode+'/players/'+p.id+'/mayor']=false; });
+      updates['rooms/'+roomCode+'/game/mayorFromEvent'] = false;
+    }
   } else {
     // Reset day votes for new day
     updates['rooms/'+roomCode+'/game/dayVotes'] = null;
@@ -2335,6 +2384,7 @@ async function applyEvent(ev){
     const upd={};
     players.forEach(p=>{upd['rooms/'+roomCode+'/players/'+p.id+'/mayor']=false;});
     upd['rooms/'+roomCode+'/players/'+t.id+'/mayor']=true;
+    upd['rooms/'+roomCode+'/game/mayorFromEvent']=true; // temporary — cleared next night
     await window._fb.update(window._fb.ref(db),upd);
     await pushLog(`👑 ${t.name} est désigné(e) Maire par le destin — son vote compte double aujourd\'hui !`,'chaos');
     pushNarr({fire:'👑',color:'#d4a017',title:'Un Nouveau Maire',
@@ -3460,258 +3510,6 @@ window.backToWelcome = function(){
 };
 
 // ================================================================
-// 🎙️ VOICE CHAT ENGINE — WebRTC mesh via Firebase signaling
-// ================================================================
-let voiceActive = false;
-let localStream = null;
-let voiceMuted = false;
-let voicePeers = {}; // peerId -> { pc: RTCPeerConnection, audioEl: HTMLAudioElement }
-let voiceParticipants = {}; // peerId -> {name, avatar, speaking, muted}
-let voiceUnsubSignal = null;
-let voiceUnsubParticipants = null;
-let voiceSpeakingTimer = null;
-let audioAnalyser = null;
-let audioAnalyserSource = null;
-
-const ICE_SERVERS = {iceServers:[
-  {urls:'stun:stun.l.google.com:19302'},
-  {urls:'stun:stun1.l.google.com:19302'}
-]};
-
-async function voiceJoin(){
-  if(voiceActive) return;
-  try{
-    localStream = await navigator.mediaDevices.getUserMedia({audio:true, video:false});
-  } catch(e){
-    openModal('🎙️ Microphone',`<p style="color:#e07070;font-style:italic;">Impossible d'accéder au microphone.<br><small>${e.message}</small></p>`);
-    return;
-  }
-  voiceActive = true;
-  voiceMuted = false;
-
-  // Register self in Firebase voice participants
-  await dbSet('rooms/'+roomCode+'/voice/'+me.id, {
-    name:me.name, avatar:me.avatar, id:me.id, muted:false, ts:Date.now()
-  });
-
-  // Listen to all participants
-  voiceUnsubParticipants = dbListen('rooms/'+roomCode+'/voice', async (data)=>{
-    voiceParticipants = data ? {...data} : {};
-    renderVoicePanel();
-    // Connect to any new peer we haven't connected to yet
-    if(data){
-      for(const [peerId, peerData] of Object.entries(data)){
-        if(peerId !== me.id && !voicePeers[peerId]){
-          // Polite peer: higher ID is the "impolite" peer who creates the offer
-          if(me.id > peerId) await voiceCreateOffer(peerId);
-        }
-      }
-      // Clean up disconnected peers
-      for(const peerId of Object.keys(voicePeers)){
-        if(!data[peerId]) voiceClosePeer(peerId);
-      }
-    } else {
-      Object.keys(voicePeers).forEach(voiceClosePeer);
-    }
-  });
-
-  // Listen to signaling messages addressed to us
-  voiceUnsubSignal = dbListen('rooms/'+roomCode+'/voicesig/'+me.id, async (signals)=>{
-    if(!signals) return;
-    for(const [sigId, sig] of Object.entries(signals)){
-      await voiceHandleSignal(sig.from, sig);
-      // Delete processed signal
-      await dbSet('rooms/'+roomCode+'/voicesig/'+me.id+'/'+sigId, null);
-    }
-  });
-
-  // Start speaking detection
-  voiceStartSpeakingDetection();
-
-  // Update UI
-  document.getElementById('v-join-btn').style.display='none';
-  document.getElementById('v-mute-btn').style.display='flex';
-  document.getElementById('v-leave-btn').style.display='flex';
-  renderVoicePanel();
-}
-
-async function voiceCreateOffer(peerId){
-  const pc = voiceCreatePeerConnection(peerId);
-  localStream.getTracks().forEach(t=>pc.addTrack(t, localStream));
-  const offer = await pc.createOffer();
-  await pc.setLocalDescription(offer);
-  await voiceSendSignal(peerId, {type:'offer', sdp:offer.sdp, from:me.id});
-}
-
-function voiceCreatePeerConnection(peerId){
-  const pc = new RTCPeerConnection(ICE_SERVERS);
-  voicePeers[peerId] = {pc, audioEl:null};
-
-  pc.onicecandidate = async (e)=>{
-    if(e.candidate){
-      await voiceSendSignal(peerId, {type:'candidate', candidate:e.candidate, from:me.id});
-    }
-  };
-
-  pc.ontrack = (e)=>{
-    const audioEl = new Audio();
-    audioEl.srcObject = e.streams[0];
-    audioEl.autoplay = true;
-    if(voicePeers[peerId]) voicePeers[peerId].audioEl = audioEl;
-    audioEl.play().catch(()=>{});
-  };
-
-  pc.onconnectionstatechange = ()=>{
-    if(['failed','disconnected','closed'].includes(pc.connectionState)){
-      voiceClosePeer(peerId);
-    }
-  };
-
-  return pc;
-}
-
-async function voiceHandleSignal(fromId, sig){
-  if(!voiceActive) return;
-  if(sig.type==='offer'){
-    const pc = voiceCreatePeerConnection(fromId);
-    localStream.getTracks().forEach(t=>pc.addTrack(t, localStream));
-    await pc.setRemoteDescription({type:'offer', sdp:sig.sdp});
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    await voiceSendSignal(fromId, {type:'answer', sdp:answer.sdp, from:me.id});
-  } else if(sig.type==='answer'){
-    const peer = voicePeers[fromId];
-    if(peer?.pc && peer.pc.signalingState==='have-local-offer'){
-      await peer.pc.setRemoteDescription({type:'answer', sdp:sig.sdp});
-    }
-  } else if(sig.type==='candidate'){
-    const peer = voicePeers[fromId];
-    if(peer?.pc){
-      try{ await peer.pc.addIceCandidate(new RTCIceCandidate(sig.candidate)); }catch(e){}
-    }
-  }
-}
-
-async function voiceSendSignal(toId, signal){
-  const sigId = Date.now()+'_'+Math.random().toString(36).substr(2,4);
-  await dbSet('rooms/'+roomCode+'/voicesig/'+toId+'/'+sigId, signal);
-}
-
-function voiceClosePeer(peerId){
-  const peer = voicePeers[peerId];
-  if(!peer) return;
-  try{peer.pc.close();}catch(e){}
-  if(peer.audioEl) try{peer.audioEl.pause();peer.audioEl.srcObject=null;}catch(e){}
-  delete voicePeers[peerId];
-}
-
-async function voiceLeave(){
-  if(!voiceActive) return;
-  voiceActive = false;
-  if(voiceUnsubSignal){voiceUnsubSignal();voiceUnsubSignal=null;}
-  if(voiceUnsubParticipants){voiceUnsubParticipants();voiceUnsubParticipants=null;}
-  Object.keys(voicePeers).forEach(voiceClosePeer);
-  voicePeers={};
-  if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;}
-  if(voiceSpeakingTimer){clearInterval(voiceSpeakingTimer);voiceSpeakingTimer=null;}
-  // Remove self from Firebase
-  await dbSet('rooms/'+roomCode+'/voice/'+me.id, null);
-  document.getElementById('v-join-btn').style.display='flex';
-  document.getElementById('v-mute-btn').style.display='none';
-  document.getElementById('v-leave-btn').style.display='none';
-  renderVoicePanel();
-}
-
-async function voiceToggleMute(){
-  if(!localStream) return;
-  voiceMuted = !voiceMuted;
-  localStream.getAudioTracks().forEach(t=>{ t.enabled = !voiceMuted; });
-  const btn = document.getElementById('v-mute-btn');
-  if(voiceMuted){
-    btn.textContent='🔇 Reprendre';
-    btn.classList.add('red');
-  } else {
-    btn.textContent='🎤 Muet';
-    btn.classList.remove('red');
-  }
-  // Update Firebase state
-  await dbUpdate('rooms/'+roomCode+'/voice/'+me.id, {muted:voiceMuted});
-  renderVoicePanel();
-}
-
-function voiceStartSpeakingDetection(){
-  if(!localStream) return;
-  try{
-    const ctx = getAudioCtx();
-    audioAnalyserSource = ctx.createMediaStreamSource(localStream);
-    audioAnalyser = ctx.createAnalyser();
-    audioAnalyser.fftSize = 256;
-    audioAnalyserSource.connect(audioAnalyser);
-    const buf = new Uint8Array(audioAnalyser.frequencyBinCount);
-    let lastSpeaking = false;
-    voiceSpeakingTimer = setInterval(async ()=>{
-      if(!audioAnalyser || voiceMuted) return;
-      audioAnalyser.getByteFrequencyData(buf);
-      const avg = buf.reduce((a,b)=>a+b,0)/buf.length;
-      const speaking = avg > 15;
-      if(speaking !== lastSpeaking){
-        lastSpeaking = speaking;
-        await dbUpdate('rooms/'+roomCode+'/voice/'+me.id, {speaking});
-      }
-    }, 200);
-  }catch(e){}
-}
-
-function renderVoicePanel(){
-  const panel = document.getElementById('voice-panel');
-  const container = document.getElementById('voice-users');
-  if(!panel || !container) return;
-  panel.style.display = 'block';
-  const pts = Object.values(voiceParticipants||{});
-  if(!pts.length){
-    container.innerHTML='<div style="color:var(--smoke);font-size:.76rem;font-style:italic;">Personne en vocal…</div>';
-    return;
-  }
-  container.innerHTML = pts.map(p=>{
-    const isMe = p.id===me.id;
-    const cls = `voice-user ${p.speaking&&!p.muted?'speaking':''} ${p.muted?'muted':''}`;
-    const mic = p.muted ? '🔇' : (p.speaking ? '🔊' : '🎙️');
-    return `<div class="${cls}" title="${esc(p.name)}">
-      <span class="v-av">${p.avatar}</span>
-      <span class="v-name">${esc(p.name)}${isMe?' (vous)':''}</span>
-      <span class="v-mic">${mic}</span>
-    </div>`;
-  }).join('');
-}
-
-// Show voice panel as soon as game screen is active
-function initVoicePanel(){
-  const panel = document.getElementById('voice-panel');
-  if(panel) panel.style.display='block';
-  renderVoicePanel();
-}
-
-// Cleanup voice when leaving game
-const _origBackToWelcome = window.backToWelcome;
-window.backToWelcome = async function(){
-  await voiceLeave();
-  _origBackToWelcome();
-};
-
-window.voiceJoin = voiceJoin;
-window.voiceLeave = voiceLeave;
-window.voiceToggleMute = voiceToggleMute;
-
-// ================================================================
-// END VOICE CHAT ENGINE
-// ================================================================
-
-});
-</script>
-</body>
-</html>
-
-// ================================================================
 // NARRATIVE — shared via Firebase
 // ================================================================
 function queueNarr(n){narrQueue.push(n);if(!narrActive)showNextNarr();}
@@ -3722,7 +3520,6 @@ async function pushNarr(n){
 function checkNewNarr(room){
   const narrs = room.narr ? Object.values(room.narr).sort((a,b)=>a.ts-b.ts) : [];
   if(narrs.length<=lastSeenNarrLen){return;}
-  // Show all new narrations
   for(let i=lastSeenNarrLen;i<narrs.length;i++) queueNarr(narrs[i]);
   lastSeenNarrLen=narrs.length;
 }
@@ -3735,7 +3532,6 @@ function showNextNarr(){
   document.getElementById('n-title').textContent=n.title;
   document.getElementById('n-title').style.color=n.color||'var(--moon)';
   document.getElementById('n-text').textContent=n.text;
-  // Reset animations
   ['n-title','n-text'].forEach(id=>{const el=document.getElementById(id);el.style.animation='none';void el.offsetWidth;el.style.animation='';});
   const btn=ov.querySelector('.narr-btn');
   btn.style.animation='none';void btn.offsetWidth;btn.style.animation='';
@@ -3754,6 +3550,319 @@ window.openModal = function(title,body){
 window.closeModal=function(){if(document.getElementById('modal-ov')._hunterLock)return;document.getElementById('modal-ov').classList.remove('open');};
 document.getElementById('modal-ov').addEventListener('click',e=>{if(e.target===document.getElementById('modal-ov')&&!document.getElementById('modal-ov')._hunterLock)closeModal();});
 
+// ================================================================
+// 🎙️ VOICE CHAT ENGINE — WebRTC mesh via Firebase signaling
+// ================================================================
+let voiceActive = false;
+let localStream = null;
+let voiceMuted = false;
+let voicePeers = {}; // peerId -> { pc, audioEl, iceBuf }
+let voiceParticipants = {}; // peerId -> {name, avatar, speaking, muted}
+let voiceUnsubSignal = null;
+let voiceUnsubParticipants = null;
+let voiceSpeakingTimer = null;
+let voiceAudioCtx = null; // Dedicated AudioContext for voice (separate from game audio)
+
+const VOICE_ICE = {iceServers:[
+  {urls:'stun:stun.l.google.com:19302'},
+  {urls:'stun:stun1.l.google.com:19302'},
+  {urls:'stun:stun2.l.google.com:19302'}
+]};
+
+function getVoiceAudioCtx(){
+  if(!voiceAudioCtx || voiceAudioCtx.state==='closed'){
+    voiceAudioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  }
+  if(voiceAudioCtx.state==='suspended') voiceAudioCtx.resume();
+  return voiceAudioCtx;
+}
+
+async function voiceJoin(){
+  if(voiceActive) return;
+  try{
+    localStream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true, sampleRate:48000}, video:false});
+  } catch(e){
+    openModal('🎙️ Microphone',`<p style="color:#e07070;font-style:italic;">Impossible d'accéder au microphone.<br><small>${e.message}</small></p>`);
+    return;
+  }
+  voiceActive = true;
+  voiceMuted = false;
+
+  // Ensure audio context is running (user gesture just happened)
+  getVoiceAudioCtx();
+
+  // Register self
+  await dbSet('rooms/'+roomCode+'/voice/'+me.id, {
+    name:me.name, avatar:me.avatar, id:me.id, muted:false, speaking:false, ts:Date.now()
+  });
+
+  // Listen to participants list
+  voiceUnsubParticipants = dbListen('rooms/'+roomCode+'/voice', async (data)=>{
+    voiceParticipants = data ? {...data} : {};
+    renderVoicePanel();
+    if(!voiceActive) return;
+    if(data){
+      for(const [peerId] of Object.entries(data)){
+        if(peerId !== me.id && !voicePeers[peerId]){
+          // Deterministic: the peer with the lexicographically GREATER id sends the offer
+          if(me.id > peerId){
+            await voiceCreateOffer(peerId);
+          }
+          // The peer with SMALLER id waits for an offer (handled in signal listener)
+        }
+      }
+      // Clean up gone peers
+      for(const peerId of Object.keys(voicePeers)){
+        if(!data[peerId]) voiceClosePeer(peerId);
+      }
+    } else {
+      Object.keys(voicePeers).forEach(pid=>voiceClosePeer(pid));
+    }
+  });
+
+  // Listen to signaling messages addressed to us
+  voiceUnsubSignal = dbListen('rooms/'+roomCode+'/voicesig/'+me.id, async (signals)=>{
+    if(!signals||!voiceActive) return;
+    // Process signals sorted by timestamp to avoid order issues
+    const sorted = Object.entries(signals).sort((a,b)=>String(a[0]).localeCompare(String(b[0])));
+    for(const [sigId, sig] of sorted){
+      if(!sig?.type) continue;
+      await voiceHandleSignal(sig.from, sig);
+      await dbSet('rooms/'+roomCode+'/voicesig/'+me.id+'/'+sigId, null);
+    }
+  });
+
+  voiceStartSpeakingDetection();
+
+  document.getElementById('v-join-btn').style.display='none';
+  document.getElementById('v-mute-btn').style.display='flex';
+  document.getElementById('v-leave-btn').style.display='flex';
+  renderVoicePanel();
+}
+
+async function voiceCreateOffer(peerId){
+  if(voicePeers[peerId]) return; // already exists
+  const pc = voiceCreatePeerConnection(peerId);
+  localStream.getTracks().forEach(t=>pc.addTrack(t, localStream));
+  try{
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await voiceSendSignal(peerId, {type:'offer', sdp:offer.sdp, from:me.id});
+  }catch(e){ console.warn('voiceCreateOffer error',e); }
+}
+
+function voiceCreatePeerConnection(peerId){
+  // Close existing if any
+  if(voicePeers[peerId]?.pc) try{voicePeers[peerId].pc.close();}catch(e){}
+
+  const pc = new RTCPeerConnection(VOICE_ICE);
+  voicePeers[peerId] = {pc, audioEl:null, iceBuf:[]};
+
+  pc.onicecandidate = async (e)=>{
+    if(e.candidate){
+      await voiceSendSignal(peerId, {type:'candidate', candidate:JSON.parse(JSON.stringify(e.candidate)), from:me.id});
+    }
+  };
+
+  pc.ontrack = (e)=>{
+    // Use a real <audio> element attached to the document for autoplay policy
+    let audioEl = voicePeers[peerId]?.audioEl;
+    if(!audioEl){
+      audioEl = document.createElement('audio');
+      audioEl.autoplay = true;
+      audioEl.style.display='none';
+      document.body.appendChild(audioEl);
+      if(voicePeers[peerId]) voicePeers[peerId].audioEl = audioEl;
+    }
+    audioEl.srcObject = e.streams[0];
+    audioEl.play().catch(err=>console.warn('audio play blocked:',err));
+  };
+
+  pc.onconnectionstatechange = ()=>{
+    if(['failed','disconnected','closed'].includes(pc.connectionState)){
+      voiceClosePeer(peerId);
+      renderVoicePanel();
+    }
+  };
+
+  pc.onsignalingstatechange = ()=>{
+    // Flush buffered ICE candidates once remote description is set
+    if(pc.signalingState === 'stable' || pc.signalingState === 'have-remote-offer'){
+      const buf = voicePeers[peerId]?.iceBuf || [];
+      voicePeers[peerId].iceBuf = [];
+      buf.forEach(c=>{ try{pc.addIceCandidate(new RTCIceCandidate(c));}catch(e){} });
+    }
+  };
+
+  return pc;
+}
+
+async function voiceHandleSignal(fromId, sig){
+  if(!voiceActive||!fromId) return;
+
+  if(sig.type==='offer'){
+    // We received an offer — we must be the smaller-id peer
+    if(voicePeers[fromId]?.pc) try{voicePeers[fromId].pc.close();}catch(e){}
+    const pc = voiceCreatePeerConnection(fromId);
+    localStream.getTracks().forEach(t=>pc.addTrack(t, localStream));
+    try{
+      await pc.setRemoteDescription(new RTCSessionDescription({type:'offer', sdp:sig.sdp}));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      await voiceSendSignal(fromId, {type:'answer', sdp:answer.sdp, from:me.id});
+    }catch(e){ console.warn('voiceHandleSignal offer error',e); }
+
+  } else if(sig.type==='answer'){
+    const peer = voicePeers[fromId];
+    if(peer?.pc && peer.pc.signalingState==='have-local-offer'){
+      try{
+        await peer.pc.setRemoteDescription(new RTCSessionDescription({type:'answer', sdp:sig.sdp}));
+      }catch(e){ console.warn('voiceHandleSignal answer error',e); }
+    }
+
+  } else if(sig.type==='candidate'){
+    const peer = voicePeers[fromId];
+    if(!peer?.pc) return;
+    const cand = new RTCIceCandidate(sig.candidate);
+    if(peer.pc.remoteDescription){
+      try{ await peer.pc.addIceCandidate(cand); }catch(e){}
+    } else {
+      // Buffer until remote description is set
+      peer.iceBuf = peer.iceBuf||[];
+      peer.iceBuf.push(sig.candidate);
+    }
+  }
+}
+
+async function voiceSendSignal(toId, signal){
+  const sigId = Date.now()+'_'+Math.random().toString(36).substr(2,6);
+  await dbSet('rooms/'+roomCode+'/voicesig/'+toId+'/'+sigId, signal);
+}
+
+function voiceClosePeer(peerId){
+  const peer = voicePeers[peerId];
+  if(!peer) return;
+  try{peer.pc.close();}catch(e){}
+  if(peer.audioEl){
+    try{peer.audioEl.pause();peer.audioEl.srcObject=null;peer.audioEl.remove();}catch(e){}
+  }
+  delete voicePeers[peerId];
+}
+
+async function voiceLeave(){
+  if(!voiceActive) return;
+  voiceActive = false;
+  if(voiceUnsubSignal){voiceUnsubSignal();voiceUnsubSignal=null;}
+  if(voiceUnsubParticipants){voiceUnsubParticipants();voiceUnsubParticipants=null;}
+  Object.keys(voicePeers).forEach(pid=>voiceClosePeer(pid));
+  voicePeers={};
+  if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;}
+  if(voiceSpeakingTimer){clearInterval(voiceSpeakingTimer);voiceSpeakingTimer=null;}
+  if(voiceAudioCtx){try{voiceAudioCtx.close();}catch(e){} voiceAudioCtx=null;}
+  // Remove self from Firebase
+  await dbSet('rooms/'+roomCode+'/voice/'+me.id, null);
+  // Clean up our signal queue
+  await dbSet('rooms/'+roomCode+'/voicesig/'+me.id, null);
+  const btn = document.getElementById('v-join-btn');
+  if(btn) btn.style.display='flex';
+  const muteBtn = document.getElementById('v-mute-btn');
+  if(muteBtn){muteBtn.style.display='none';muteBtn.textContent='🎤 Muet';muteBtn.classList.remove('red');}
+  const leaveBtn = document.getElementById('v-leave-btn');
+  if(leaveBtn) leaveBtn.style.display='none';
+  renderVoicePanel();
+}
+
+async function voiceToggleMute(){
+  if(!localStream) return;
+  voiceMuted = !voiceMuted;
+  localStream.getAudioTracks().forEach(t=>{ t.enabled = !voiceMuted; });
+  const btn = document.getElementById('v-mute-btn');
+  if(btn){
+    if(voiceMuted){ btn.innerHTML='🔇 Reprendre'; btn.classList.add('red'); }
+    else { btn.innerHTML='🎤 Muet'; btn.classList.remove('red'); }
+  }
+  await dbUpdate('rooms/'+roomCode+'/voice/'+me.id, {muted:voiceMuted, speaking:false});
+  renderVoicePanel();
+}
+
+function voiceStartSpeakingDetection(){
+  if(!localStream) return;
+  try{
+    const ctx = getVoiceAudioCtx();
+    const src = ctx.createMediaStreamSource(localStream);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0.4;
+    src.connect(analyser);
+    const buf = new Uint8Array(analyser.frequencyBinCount);
+    let lastSpeaking = false;
+
+    voiceSpeakingTimer = setInterval(async ()=>{
+      if(!voiceActive||voiceMuted||!analyser) return;
+      analyser.getByteFrequencyData(buf);
+      // Focus on speech frequencies (300hz-3400hz)
+      const speechBins = Math.floor(buf.length * 0.15);
+      let sum = 0;
+      for(let i=speechBins;i<speechBins*3;i++) sum+=buf[i];
+      const avg = sum / (speechBins*2);
+      const speaking = avg > 10;
+      if(speaking !== lastSpeaking){
+        lastSpeaking = speaking;
+        if(voiceActive){
+          try{ await dbUpdate('rooms/'+roomCode+'/voice/'+me.id, {speaking}); }catch(e){}
+        }
+      }
+    }, 150);
+  }catch(e){ console.warn('Speaking detection error:',e); }
+}
+
+function renderVoicePanel(){
+  const panel = document.getElementById('voice-panel');
+  const container = document.getElementById('voice-users');
+  if(!panel || !container) return;
+  const pts = Object.values(voiceParticipants||{});
+  if(!pts.length){
+    container.innerHTML='<div style="color:var(--smoke);font-size:.76rem;font-style:italic;">Personne en vocal pour l\'instant…</div>';
+    return;
+  }
+  container.innerHTML = pts.map(p=>{
+    const isMe = p.id===me.id;
+    const speaking = p.speaking && !p.muted;
+    const cls = `voice-user${speaking?' speaking':''}${p.muted?' muted':''}`;
+    const mic = p.muted ? '🔇' : (speaking ? '🔊' : '🎙️');
+    return `<div class="${cls}" title="${esc(p.name)}">
+      <span class="v-av">${p.avatar||'🧑'}</span>
+      <span class="v-name">${esc(p.name)}${isMe?' (vous)':''}</span>
+      <span class="v-mic">${mic}</span>
+    </div>`;
+  }).join('');
+}
+
+function initVoicePanel(){
+  const panel = document.getElementById('voice-panel');
+  if(panel) panel.style.display='block';
+  renderVoicePanel();
+  // Also watch for Firebase voice changes even before joining
+  dbListen('rooms/'+roomCode+'/voice', (data)=>{
+    voiceParticipants = data ? {...data} : {};
+    renderVoicePanel();
+  });
+}
+
+// Cleanup voice when leaving game
+const _origBackToWelcome = window.backToWelcome;
+window.backToWelcome = async function(){
+  await voiceLeave();
+  _origBackToWelcome();
+};
+
+window.voiceJoin = voiceJoin;
+window.voiceLeave = voiceLeave;
+window.voiceToggleMute = voiceToggleMute;
+
+// ================================================================
+// END VOICE CHAT ENGINE
+// ================================================================
 
 });
 </script>
